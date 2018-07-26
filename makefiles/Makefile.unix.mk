@@ -126,14 +126,10 @@ ifeq ($(PLATFORM),LINUX)
   ifdef UNIX_GUROBI_DIR
     ifeq ($(PTRLENGTH),64)
       GUROBI_LNK = \
- -Wl,-rpath $(UNIX_GUROBI_DIR)/linux64/lib/ \
- -L$(UNIX_GUROBI_DIR)/linux64/lib/ -m64 -lc -ldl -lm -lpthread \
- -lgurobi$(GUROBI_LIB_VERSION)
+ -m64 -lc -ldl -lm -lpthread
     else
       GUROBI_LNK = \
- -Wl,-rpath $(UNIX_GUROBI_DIR)/linux32/lib/ \
- -L$(UNIX_GUROBI_DIR)/linux32/lib/ -m32 -lc -ldl -lm -lpthread \
- -lgurobi$(GUROBI_LIB_VERSION)
+ -m32 -lc -ldl -lm -lpthread
     endif
   endif
   ifdef UNIX_CPLEX_DIR
@@ -197,8 +193,7 @@ ifeq ($(PLATFORM),MACOSX)
   endif
   ifdef UNIX_GUROBI_DIR
     GUROBI_LNK = \
- -L$(UNIX_GUROBI_DIR)/mac64/bin/ -lc -ldl -lm -lpthread \
- -lgurobi$(GUROBI_LIB_VERSION)
+ -lc -ldl -lm -lpthread
   endif
   ifdef UNIX_CPLEX_DIR
     CPLEX_LNK = \

@@ -10,6 +10,7 @@ BASE_DEPS = \
  $(SRC_DIR)/ortools/base/casts.h \
  $(SRC_DIR)/ortools/base/cleanup.h \
  $(SRC_DIR)/ortools/base/commandlineflags.h \
+ $(SRC_DIR)/ortools/base/dynamic_library.h \
  $(SRC_DIR)/ortools/base/encodingutils.h \
  $(SRC_DIR)/ortools/base/file.h \
  $(SRC_DIR)/ortools/base/filelineiter.h \
@@ -61,6 +62,7 @@ BASE_DEPS = \
 BASE_LIB_OBJS = \
  $(OBJ_DIR)/base/bitmap.$O \
  $(OBJ_DIR)/base/callback.$O \
+ $(OBJ_DIR)/base/dynamic_library.$O \
  $(OBJ_DIR)/base/file.$O \
  $(OBJ_DIR)/base/join.$O \
  $(OBJ_DIR)/base/mutex.$O \
@@ -97,6 +99,8 @@ $(SRC_DIR)/ortools/base/casts.h: ;
 $(SRC_DIR)/ortools/base/cleanup.h: ;
 
 $(SRC_DIR)/ortools/base/commandlineflags.h: ;
+
+$(SRC_DIR)/ortools/base/dynamic_library.h: ;
 
 $(SRC_DIR)/ortools/base/encodingutils.h: ;
 
@@ -209,6 +213,13 @@ $(OBJ_DIR)/base/callback.$O: \
  $(SRC_DIR)/ortools/base/logging.h \
  | $(OBJ_DIR)/base
 	$(CCC) $(CFLAGS) -c $(SRC_DIR)$Sortools$Sbase$Scallback.cc $(OBJ_OUT)$(OBJ_DIR)$Sbase$Scallback.$O
+
+$(SRC_DIR)/ortools/base/dynamic_library.cc: ;
+
+$(OBJ_DIR)/base/dynamic_library.$O: \
+ $(SRC_DIR)/ortools/base/dynamic_library.cc \
+ | $(OBJ_DIR)/base
+	$(CCC) $(CFLAGS) -c $(SRC_DIR)$Sortools$Sbase$Sdynamic_library.cc $(OBJ_OUT)$(OBJ_DIR)$Sbase$Sdynamic_library.$O
 
 $(SRC_DIR)/ortools/base/file.cc: ;
 
@@ -3292,6 +3303,7 @@ $(SRC_DIR)/ortools/linear_solver/gurobi_interface.cc: ;
 $(OBJ_DIR)/linear_solver/gurobi_interface.$O: \
  $(SRC_DIR)/ortools/linear_solver/gurobi_interface.cc \
  $(SRC_DIR)/ortools/base/commandlineflags.h \
+ $(SRC_DIR)/ortools/base/dynamic_library.h \
  $(SRC_DIR)/ortools/base/integral_types.h \
  $(SRC_DIR)/ortools/base/logging.h \
  $(SRC_DIR)/ortools/base/map_util.h \

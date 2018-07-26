@@ -22,6 +22,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <algorithm>
 
 #include "ortools/base/commandlineflags.h"
 #include "ortools/base/integral_types.h"
@@ -30,6 +31,7 @@
 #include "ortools/base/port.h"
 #include "ortools/base/stringprintf.h"
 #include "ortools/base/timer.h"
+#include "ortools/base/dynamic_library.h"
 #include "ortools/linear_solver/linear_solver.h"
 
 extern "C" {
@@ -176,6 +178,42 @@ class GurobiInterface : public MPSolverInterface {
   GRBenv* env_;
   bool mip_;
   int current_solution_index_;
+  DynamicLibrary* lib_;
+
+  std::function<int(GRBmodel*, int, int*, double*, double, double, const char*)>
+      GRBaddrangeconstr;
+  std::function<int(GRBmodel*, int, int, int*, int*, double*, double*, double*,
+                    double*, char*, char**)>
+      GRBaddvars;
+  std::function<void(GRBenv*)> GRBfreeenv;
+  std::function<int(GRBmodel*)> GRBfreemodel;
+  std::function<int(GRBmodel*, const char*, int, char*)> GRBgetcharattrelement;
+  std::function<int(GRBmodel*, const char*, double*)> GRBgetdblattr;
+  std::function<int(GRBmodel*, const char*, int, int, double*)>
+      GRBgetdblattrarray;
+  std::function<int(GRBmodel*, const char*, int, double*)> GRBgetdblattrelement;
+  std::function<int(GRBenv*, const char*, double*)> GRBgetdblparam;
+  std::function<GRBenv*(GRBmodel*)> GRBgetenv;
+  std::function<char*(GRBenv*)> GRBgeterrormsg;
+  std::function<int(GRBmodel*, const char*, int*)> GRBgetintattr;
+  std::function<int(GRBmodel*, const char*, int, int*)> GRBgetintattrelement;
+  std::function<int(GRBenv**, const char*)> GRBloadenv;
+  std::function<int(GRBenv*, GRBmodel**, const char*, int numvars, double*,
+                    double*, double*, char*, char**)>
+      GRBnewmodel;
+  std::function<int(GRBmodel*)> GRBoptimize;
+  std::function<int(GRBenv*, const char*)> GRBreadparams;
+  std::function<int(GRBenv*)> GRBresetparams;
+  std::function<int(GRBmodel*, const char*, int, char)> GRBsetcharattrelement;
+  std::function<int(GRBmodel*, const char*, double)> GRBsetdblattr;
+  std::function<int(GRBmodel*, const char*, int, double)> GRBsetdblattrelement;
+  std::function<int(GRBenv*, const char*, double)> GRBsetdblparam;
+  std::function<int(GRBmodel*, const char*, int)> GRBsetintattr;
+  std::function<int(GRBenv*, const char*, int)> GRBsetintparam;
+  std::function<void(GRBmodel*)> GRBterminate;
+  std::function<int(GRBmodel*)> GRBupdatemodel;
+  std::function<void(int*, int*, int*)> GRBversion;
+  std::function<int(GRBmodel*, const char*)> GRBwrite;
 };
 
 // Creates a LP/MIP instance with the specified name and minimization objective.
@@ -185,6 +223,48 @@ GurobiInterface::GurobiInterface(MPSolver* const solver, bool mip)
       env_(nullptr),
       mip_(mip),
       current_solution_index_(0) {
+  try {
+    // TODO: library name should be configurable at runtime
+    auto library_name =
+#if defined(_MSC_VER)
+    "gurobi80.dll";
+#elif defined(__GNUC__)
+    "libgurobi80.so";
+#endif
+    lib_ = new DynamicLibrary(library_name);
+    lib_->GetFunction(&GRBaddrangeconstr, NAMEOF(GRBaddrangeconstr));
+    lib_->GetFunction(&GRBaddvars, NAMEOF(GRBaddvars));
+    lib_->GetFunction(&GRBfreeenv, NAMEOF(GRBfreeenv));
+    lib_->GetFunction(&GRBfreemodel, NAMEOF(GRBfreemodel));
+    lib_->GetFunction(&GRBgetcharattrelement, NAMEOF(GRBgetcharattrelement));
+    lib_->GetFunction(&GRBgetdblattr, NAMEOF(GRBgetdblattr));
+    lib_->GetFunction(&GRBgetdblattrarray, NAMEOF(GRBgetdblattrarray));
+    lib_->GetFunction(&GRBgetdblattrelement, NAMEOF(GRBgetdblattrelement));
+    lib_->GetFunction(&GRBgetdblparam, NAMEOF(GRBgetdblparam));
+    lib_->GetFunction(&GRBgetenv, NAMEOF(GRBgetenv));
+    lib_->GetFunction(&GRBgeterrormsg, NAMEOF(GRBgeterrormsg));
+    lib_->GetFunction(&GRBgetintattr, NAMEOF(GRBgetintattr));
+    lib_->GetFunction(&GRBgetintattrelement, NAMEOF(GRBgetintattrelement));
+    lib_->GetFunction(&GRBloadenv, NAMEOF(GRBloadenv));
+    lib_->GetFunction(&GRBnewmodel, NAMEOF(GRBnewmodel));
+    lib_->GetFunction(&GRBoptimize, NAMEOF(GRBoptimize));
+    lib_->GetFunction(&GRBreadparams, NAMEOF(GRBreadparams));
+    lib_->GetFunction(&GRBresetparams, NAMEOF(GRBresetparams));
+    lib_->GetFunction(&GRBsetcharattrelement, NAMEOF(GRBsetcharattrelement));
+    lib_->GetFunction(&GRBsetdblattr, NAMEOF(GRBsetdblattr));
+    lib_->GetFunction(&GRBsetdblattrelement, NAMEOF(GRBsetdblattrelement));
+    lib_->GetFunction(&GRBsetdblparam, NAMEOF(GRBsetdblparam));
+    lib_->GetFunction(&GRBsetintattr, NAMEOF(GRBsetintattr));
+    lib_->GetFunction(&GRBsetintparam, NAMEOF(GRBsetintparam));
+    lib_->GetFunction(&GRBterminate, NAMEOF(GRBterminate));
+    lib_->GetFunction(&GRBupdatemodel, NAMEOF(GRBupdatemodel));
+    lib_->GetFunction(&GRBversion, NAMEOF(GRBversion));
+    lib_->GetFunction(&GRBwrite, NAMEOF(GRBwrite));
+  } catch (const std::runtime_error& e) {
+    LOG(DFATAL) << e.what();
+    throw;
+  }
+
   int ret = GRBloadenv(&env_, nullptr);
   if (ret != 0 || env_ == nullptr) {
     std::string err_msg = GRBgeterrormsg(env_);

@@ -396,3 +396,16 @@ cc_library(
         ":inlined_vector",
     ],
 )
+
+cc_library(
+    name = "dynamic_library",
+    srcs = [
+        "dynamic_library.cc",
+    ],
+    hdrs = [
+        "dynamic_library.h",
+    ],
+    deps = [
+        ":base",
+    ],
+)
