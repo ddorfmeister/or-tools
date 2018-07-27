@@ -15,11 +15,13 @@
 
 #include <limits>
 #include <memory>
+#include <functional>
 
 #include "ortools/base/integral_types.h"
 #include "ortools/base/logging.h"
 #include "ortools/base/stringprintf.h"
 #include "ortools/base/timer.h"
+#include "ortools/base/dynamic_library.h"
 #include "ortools/linear_solver/linear_solver.h"
 
 #if defined(USE_CPLEX)
@@ -210,6 +212,70 @@ class CplexInterface : public MPSolverInterface {
   // Setup the right-hand side of a constraint from its lower and upper bound.
   static void MakeRhs(double lb, double ub, double &rhs, char &sense,
                       double &range);
+
+  DynamicLibrary* lib_;
+
+	std::function<int(CPXCENVptr, CPXLPptr, CPXDIM, CPXNNZ, double const*,
+                    CPXNNZ const*, CPXDIM const*, double const*, double const*,
+                    double const*, char const* const*)>
+      CPXXaddcols;
+  std::function<int(CPXCENVptr, CPXLPptr, CPXDIM, CPXDIM, CPXNNZ, double const*,
+                    char const*, CPXNNZ const*, CPXDIM const*, double const*,
+                    char const* const*, char const* const*)>
+      CPXXaddrows;
+  std::function<int(CPXCENVptr, CPXLPptr, CPXDIM, CPXDIM const*, char const*,
+                    double const*)>
+      CPXXchgbds;
+  std::function<int(CPXCENVptr, CPXLPptr, CPXDIM, CPXDIM, double)> CPXXchgcoef;
+  std::function<int(CPXCENVptr, CPXLPptr, CPXNNZ, CPXDIM const*, CPXDIM const*,
+                    double const*)>
+      CPXXchgcoeflist;
+  std::function<int(CPXCENVptr, CPXLPptr, CPXDIM, CPXDIM const*, char const*)>
+      CPXXchgctype;
+  std::function<int(CPXCENVptr, CPXLPptr, CPXDIM, CPXDIM const*, double const*)>
+      CPXXchgobj;
+  std::function<int(CPXCENVptr, CPXLPptr, int)> CPXXchgobjsen;
+  std::function<int(CPXCENVptr, CPXLPptr, int)> CPXXchgprobtype;
+  std::function<int(CPXCENVptr, CPXLPptr, CPXDIM, CPXDIM const*, double const*)>
+      CPXXchgrhs;
+  std::function<int(CPXCENVptr, CPXLPptr, CPXDIM, CPXDIM const*, double const*)>
+      CPXXchgrngval;
+  std::function<int(CPXCENVptr, CPXLPptr, CPXDIM, CPXDIM const*, char const*)>
+      CPXXchgsense;
+  std::function<int(CPXENVptr*)> CPXXcloseCPLEX;
+  std::function<CPXLPptr(CPXCENVptr, int*, char const*)> CPXXcreateprob;
+  std::function<int(CPXCENVptr, CPXLPptr, CPXDIM, CPXDIM)> CPXXdelcols;
+  std::function<int(CPXCENVptr, CPXLPptr, CPXDIM, CPXDIM)> CPXXdelrows;
+  std::function<int(CPXCENVptr, CPXLPptr*)> CPXXfreeprob;
+  std::function<int(CPXCENVptr, CPXCLPptr, int*, int*)> CPXXgetbase;
+  std::function<int(CPXCENVptr, CPXCLPptr, double*)> CPXXgetbestobjval;
+  std::function<int(CPXCENVptr, CPXCLPptr, double*, int)> CPXXgetdblquality;
+  std::function<int(CPXCENVptr, CPXCLPptr, double*, CPXDIM, CPXDIM)> CPXXgetdj;
+  std::function<CPXCNT(CPXCENVptr, CPXCLPptr)> CPXXgetitcnt;
+  std::function<CPXCNT(CPXCENVptr, CPXCLPptr)> CPXXgetmipitcnt;
+  std::function<CPXCNT(CPXCENVptr, CPXCLPptr)> CPXXgetnodecnt;
+  std::function<CPXDIM(CPXCENVptr, CPXCLPptr)> CPXXgetnumcols;
+  std::function<CPXDIM(CPXCENVptr, CPXCLPptr)> CPXXgetnumrows;
+  std::function<int(CPXCENVptr, CPXCLPptr, double*)> CPXXgetobjval;
+  std::function<int(CPXCENVptr, CPXCLPptr, double*, CPXDIM, CPXDIM)> CPXXgetpi;
+  std::function<int(CPXCENVptr, CPXCLPptr)> CPXXgetstat;
+  std::function<int(CPXCENVptr, CPXCLPptr, double*, CPXDIM, CPXDIM)> CPXXgetx;
+  std::function<int(CPXCENVptr, CPXLPptr)> CPXXlpopt;
+  std::function<int(CPXCENVptr, CPXLPptr)> CPXXmipopt;
+  std::function<int(CPXCENVptr, CPXLPptr, CPXDIM, double const*, double const*,
+                    double const*, char const*, char const* const*)>
+      CPXXnewcols;
+  std::function<int(CPXCENVptr, CPXLPptr, CPXDIM, double const*, char const*,
+                    double const*, char const* const*)>
+      CPXXnewrows;
+  std::function<CPXENVptr(int*)> CPXXopenCPLEX;
+  std::function<int(CPXENVptr, char const*)> CPXXreadcopyparam;
+  std::function<int(CPXENVptr, int, double)> CPXXsetdblparam;
+  std::function<int(CPXENVptr, int, CPXINT)> CPXXsetintparam;
+  std::function<int(CPXCENVptr, CPXCLPptr, int*, int*, int*, int*)>
+      CPXXsolninfo;
+  std::function<CPXCCHARptr(CPXCENVptr)> CPXXversion;
+  std::function<int(CPXCENVptr, int*)> CPXXversionnumber;
 };
 
 // Creates a LP/MIP instance.
@@ -223,6 +289,60 @@ CplexInterface::CplexInterface(MPSolver *const solver, bool mip)
       supportIncrementalExtraction(false),
       mCstat(),
       mRstat() {
+  try {
+    // TODO: library name should be configurable at runtime
+    auto library_name =
+#if defined(_MSC_VER)
+    "cplex1280.dll";
+#elif defined(__GNUC__)
+    "libcplex1280.so";
+#endif
+    lib_->GetFunction(&CPXXaddcols, NAMEOF(CPXXaddcols));
+    lib_->GetFunction(&CPXXaddrows, NAMEOF(CPXXaddrows));
+    lib_->GetFunction(&CPXXchgbds, NAMEOF(CPXXchgbds));
+    lib_->GetFunction(&CPXXchgcoef, NAMEOF(CPXXchgcoef));
+    lib_->GetFunction(&CPXXchgcoeflist, NAMEOF(CPXXchgcoeflist));
+    lib_->GetFunction(&CPXXchgctype, NAMEOF(CPXXchgctype));
+    lib_->GetFunction(&CPXXchgobj, NAMEOF(CPXXchgobj));
+    lib_->GetFunction(&CPXXchgobjsen, NAMEOF(CPXXchgobjsen));
+    lib_->GetFunction(&CPXXchgprobtype, NAMEOF(CPXXchgprobtype));
+    lib_->GetFunction(&CPXXchgrhs, NAMEOF(CPXXchgrhs));
+    lib_->GetFunction(&CPXXchgrngval, NAMEOF(CPXXchgrngval));
+    lib_->GetFunction(&CPXXchgsense, NAMEOF(CPXXchgsense));
+    lib_->GetFunction(&CPXXcloseCPLEX, NAMEOF(CPXXcloseCPLEX));
+    lib_->GetFunction(&CPXXcreateprob, NAMEOF(CPXXcreateprob));
+    lib_->GetFunction(&CPXXdelcols, NAMEOF(CPXXdelcols));
+    lib_->GetFunction(&CPXXdelrows, NAMEOF(CPXXdelrows));
+    lib_->GetFunction(&CPXXfreeprob, NAMEOF(CPXXfreeprob));
+    lib_->GetFunction(&CPXXgetbase, NAMEOF(CPXXgetbase));
+    lib_->GetFunction(&CPXXgetbestobjval, NAMEOF(CPXXgetbestobjval));
+    lib_->GetFunction(&CPXXgetdblquality, NAMEOF(CPXXgetdblquality));
+    lib_->GetFunction(&CPXXgetdj, NAMEOF(CPXXgetdj));
+    lib_->GetFunction(&CPXXgetitcnt, NAMEOF(CPXXgetitcnt));
+    lib_->GetFunction(&CPXXgetmipitcnt, NAMEOF(CPXXgetmipitcnt));
+    lib_->GetFunction(&CPXXgetnodecnt, NAMEOF(CPXXgetnodecnt));
+    lib_->GetFunction(&CPXXgetnumcols, NAMEOF(CPXXgetnumcols));
+    lib_->GetFunction(&CPXXgetnumrows, NAMEOF(CPXXgetnumrows));
+    lib_->GetFunction(&CPXXgetobjval, NAMEOF(CPXXgetobjval));
+    lib_->GetFunction(&CPXXgetpi, NAMEOF(CPXXgetpi));
+    lib_->GetFunction(&CPXXgetstat, NAMEOF(CPXXgetstat));
+    lib_->GetFunction(&CPXXgetx, NAMEOF(CPXXgetx));
+    lib_->GetFunction(&CPXXlpopt, NAMEOF(CPXXlpopt));
+    lib_->GetFunction(&CPXXmipopt, NAMEOF(CPXXmipopt));
+    lib_->GetFunction(&CPXXnewcols, NAMEOF(CPXXnewcols));
+    lib_->GetFunction(&CPXXnewrows, NAMEOF(CPXXnewrows));
+    lib_->GetFunction(&CPXXopenCPLEX, NAMEOF(CPXXopenCPLEX));
+    lib_->GetFunction(&CPXXreadcopyparam, NAMEOF(CPXXreadcopyparam));
+    lib_->GetFunction(&CPXXsetdblparam, NAMEOF(CPXXsetdblparam));
+    lib_->GetFunction(&CPXXsetintparam, NAMEOF(CPXXsetintparam));
+    lib_->GetFunction(&CPXXsolninfo, NAMEOF(CPXXsolninfo));
+    lib_->GetFunction(&CPXXversion, NAMEOF(CPXXversion));
+    lib_->GetFunction(&CPXXversionnumber, NAMEOF(CPXXversionnumber));
+  } catch (const std::runtime_error& e) {
+    LOG(DFATAL) << e.what();
+    throw;
+  }
+
   int status;
 
   mEnv = CPXXopenCPLEX(&status);

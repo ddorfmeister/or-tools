@@ -113,14 +113,12 @@ ifdef WINDOWS_SCIP_DIR
   STATIC_SCIP_LNK = $(WINDOWS_SCIP_DIR)\\libscipopt.lib
   DYNAMIC_SCIP_LNK = $(WINDOWS_SCIP_DIR)\\libscipopt.lib
 endif
-# This is needed to find CPLEX include files and libraries.
+# This is needed to find CPLEX include files.
 ifdef WINDOWS_CPLEX_DIR
   CPLEX_INC = /I$(WINDOWS_CPLEX_DIR)\\include /DUSE_CPLEX
   CPLEX_SWIG = -DUSE_CPLEX
-  STATIC_CPLEX_LNK = $(WINDOWS_CPLEX_DIR)\\cplex.lib
-  DYNAMIC_CPLEX_LNK = $(STATIC_CPLEX_LNK)
 endif
-# This is needed to find Gurobi include files and libraries.
+# This is needed to find Gurobi include files.
 ifdef WINDOWS_GUROBI_DIR
   ifeq ($(PTRLENGTH),64)
     GUROBI_INC = /I$(WINDOWS_GUROBI_DIR)\win64\include /DUSE_GUROBI
@@ -152,7 +150,7 @@ STATIC_PROTOBUF_LNK = $(WINDOWS_PROTOBUF_DIR)\\lib\\libprotobuf.lib
 DYNAMIC_GLOG_LNK = $(WINDOWS_PROTOBUF_DIR)\\lib\\glog.lib
 STATIC_GLOG_LNK = $(WINDOWS_PROTOBUF_DIR)\\lib\\glog.lib
 SYS_LNK=psapi.lib ws2_32.lib shlwapi.lib
-DEPENDENCIES_LNK = $(STATIC_CBC_LNK) $(STATIC_CLP_LNK) $(STATIC_GLPK_LNK) $(STATIC_SCIP_LNK) $(STATIC_CPLEX_LNK) $(STATIC_GLOG_LNK) $(STATIC_GFLAGS_LNK) $(STATIC_PROTOBUF_LNK)
+DEPENDENCIES_LNK = $(STATIC_CBC_LNK) $(STATIC_CLP_LNK) $(STATIC_GLPK_LNK) $(STATIC_SCIP_LNK) $(STATIC_GLOG_LNK) $(STATIC_GFLAGS_LNK) $(STATIC_PROTOBUF_LNK)
 LDFLAGS = $(ZLIB_LNK) $(SYS_LNK)
 
 OR_TOOLS_LDFLAGS = $(ZLIB_LNK) $(SYS_LNK)

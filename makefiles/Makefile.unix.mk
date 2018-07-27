@@ -135,11 +135,9 @@ ifeq ($(PLATFORM),LINUX)
   ifdef UNIX_CPLEX_DIR
     ifeq ($(PTRLENGTH),64)
       CPLEX_LNK = \
- $(UNIX_CPLEX_DIR)/cplex/lib/x86-64_linux/static_pic/libcplex.a \
  -lm -lpthread
     else
       CPLEX_LNK = \
- $(UNIX_CPLEX_DIR)/cplex/lib/x86_linux/static_pic/libcplex.a \
  -lm -lpthread
     endif
   endif
@@ -197,7 +195,6 @@ ifeq ($(PLATFORM),MACOSX)
   endif
   ifdef UNIX_CPLEX_DIR
     CPLEX_LNK = \
- -force_load $(UNIX_CPLEX_DIR)/cplex/lib/x86-64_osx/static_pic/libcplex.a \
  -lm -lpthread -framework CoreFoundation -framework IOKit
   endif
   SYS_LNK =

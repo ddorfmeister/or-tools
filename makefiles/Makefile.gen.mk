@@ -3245,6 +3245,7 @@ $(SRC_DIR)/ortools/linear_solver/cplex_interface.cc: ;
 
 $(OBJ_DIR)/linear_solver/cplex_interface.$O: \
  $(SRC_DIR)/ortools/linear_solver/cplex_interface.cc \
+ $(SRC_DIR)/ortools/base/dynamic_library.h \
  $(SRC_DIR)/ortools/base/integral_types.h \
  $(SRC_DIR)/ortools/base/logging.h \
  $(SRC_DIR)/ortools/base/stringprintf.h \

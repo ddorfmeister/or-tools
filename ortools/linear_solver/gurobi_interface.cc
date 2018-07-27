@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 #include <algorithm>
+#include <functional>
 
 #include "ortools/base/commandlineflags.h"
 #include "ortools/base/integral_types.h"
