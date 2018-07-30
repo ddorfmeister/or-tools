@@ -276,6 +276,7 @@ class CplexInterface : public MPSolverInterface {
       CPXXsolninfo;
   std::function<CPXCCHARptr(CPXCENVptr)> CPXXversion;
   std::function<int(CPXCENVptr, int*)> CPXXversionnumber;
+  std::function<int(CPXCENVptr, CPXLPptr, double)> CPXEsetobjoffset;
 };
 
 // Creates a LP/MIP instance.
@@ -297,47 +298,49 @@ CplexInterface::CplexInterface(MPSolver *const solver, bool mip)
 #elif defined(__GNUC__)
     "libcplex1280.so";
 #endif
-    lib_->GetFunction(&CPXXaddcols, NAMEOF(CPXXaddcols));
-    lib_->GetFunction(&CPXXaddrows, NAMEOF(CPXXaddrows));
-    lib_->GetFunction(&CPXXchgbds, NAMEOF(CPXXchgbds));
-    lib_->GetFunction(&CPXXchgcoef, NAMEOF(CPXXchgcoef));
-    lib_->GetFunction(&CPXXchgcoeflist, NAMEOF(CPXXchgcoeflist));
-    lib_->GetFunction(&CPXXchgctype, NAMEOF(CPXXchgctype));
-    lib_->GetFunction(&CPXXchgobj, NAMEOF(CPXXchgobj));
-    lib_->GetFunction(&CPXXchgobjsen, NAMEOF(CPXXchgobjsen));
-    lib_->GetFunction(&CPXXchgprobtype, NAMEOF(CPXXchgprobtype));
-    lib_->GetFunction(&CPXXchgrhs, NAMEOF(CPXXchgrhs));
-    lib_->GetFunction(&CPXXchgrngval, NAMEOF(CPXXchgrngval));
-    lib_->GetFunction(&CPXXchgsense, NAMEOF(CPXXchgsense));
-    lib_->GetFunction(&CPXXcloseCPLEX, NAMEOF(CPXXcloseCPLEX));
-    lib_->GetFunction(&CPXXcreateprob, NAMEOF(CPXXcreateprob));
-    lib_->GetFunction(&CPXXdelcols, NAMEOF(CPXXdelcols));
-    lib_->GetFunction(&CPXXdelrows, NAMEOF(CPXXdelrows));
-    lib_->GetFunction(&CPXXfreeprob, NAMEOF(CPXXfreeprob));
-    lib_->GetFunction(&CPXXgetbase, NAMEOF(CPXXgetbase));
-    lib_->GetFunction(&CPXXgetbestobjval, NAMEOF(CPXXgetbestobjval));
-    lib_->GetFunction(&CPXXgetdblquality, NAMEOF(CPXXgetdblquality));
-    lib_->GetFunction(&CPXXgetdj, NAMEOF(CPXXgetdj));
-    lib_->GetFunction(&CPXXgetitcnt, NAMEOF(CPXXgetitcnt));
-    lib_->GetFunction(&CPXXgetmipitcnt, NAMEOF(CPXXgetmipitcnt));
-    lib_->GetFunction(&CPXXgetnodecnt, NAMEOF(CPXXgetnodecnt));
-    lib_->GetFunction(&CPXXgetnumcols, NAMEOF(CPXXgetnumcols));
-    lib_->GetFunction(&CPXXgetnumrows, NAMEOF(CPXXgetnumrows));
-    lib_->GetFunction(&CPXXgetobjval, NAMEOF(CPXXgetobjval));
-    lib_->GetFunction(&CPXXgetpi, NAMEOF(CPXXgetpi));
-    lib_->GetFunction(&CPXXgetstat, NAMEOF(CPXXgetstat));
-    lib_->GetFunction(&CPXXgetx, NAMEOF(CPXXgetx));
-    lib_->GetFunction(&CPXXlpopt, NAMEOF(CPXXlpopt));
-    lib_->GetFunction(&CPXXmipopt, NAMEOF(CPXXmipopt));
-    lib_->GetFunction(&CPXXnewcols, NAMEOF(CPXXnewcols));
-    lib_->GetFunction(&CPXXnewrows, NAMEOF(CPXXnewrows));
-    lib_->GetFunction(&CPXXopenCPLEX, NAMEOF(CPXXopenCPLEX));
-    lib_->GetFunction(&CPXXreadcopyparam, NAMEOF(CPXXreadcopyparam));
-    lib_->GetFunction(&CPXXsetdblparam, NAMEOF(CPXXsetdblparam));
-    lib_->GetFunction(&CPXXsetintparam, NAMEOF(CPXXsetintparam));
-    lib_->GetFunction(&CPXXsolninfo, NAMEOF(CPXXsolninfo));
-    lib_->GetFunction(&CPXXversion, NAMEOF(CPXXversion));
-    lib_->GetFunction(&CPXXversionnumber, NAMEOF(CPXXversionnumber));
+    lib_ = new DynamicLibrary(library_name);
+    lib_->GetFunction(&CPXXaddcols, "CPXaddcols");
+    lib_->GetFunction(&CPXXaddrows, "CPXaddrows");
+    lib_->GetFunction(&CPXXchgbds, "CPXchgbds");
+    lib_->GetFunction(&CPXXchgcoef, "CPXchgcoef");
+    lib_->GetFunction(&CPXXchgcoeflist, "CPXchgcoeflist");
+    lib_->GetFunction(&CPXXchgctype, "CPXchgctype");
+    lib_->GetFunction(&CPXXchgobj, "CPXchgobj");
+    lib_->GetFunction(&CPXXchgobjsen, "CPXchgobjsen");
+    lib_->GetFunction(&CPXXchgprobtype, "CPXchgprobtype");
+    lib_->GetFunction(&CPXXchgrhs, "CPXchgrhs");
+    lib_->GetFunction(&CPXXchgrngval, "CPXchgrngval");
+    lib_->GetFunction(&CPXXchgsense, "CPXchgsense");
+    lib_->GetFunction(&CPXXcloseCPLEX, "CPXcloseCPLEX");
+    lib_->GetFunction(&CPXXcreateprob, "CPXcreateprob");
+    lib_->GetFunction(&CPXXdelcols, "CPXdelcols");
+    lib_->GetFunction(&CPXXdelrows, "CPXdelrows");
+    lib_->GetFunction(&CPXXfreeprob, "CPXfreeprob");
+    lib_->GetFunction(&CPXXgetbase, "CPXgetbase");
+    lib_->GetFunction(&CPXXgetbestobjval, "CPXgetbestobjval");
+    lib_->GetFunction(&CPXXgetdblquality, "CPXgetdblquality");
+    lib_->GetFunction(&CPXXgetdj, "CPXgetdj");
+    lib_->GetFunction(&CPXXgetitcnt, "CPXgetitcnt");
+    lib_->GetFunction(&CPXXgetmipitcnt, "CPXgetmipitcnt");
+    lib_->GetFunction(&CPXXgetnodecnt, "CPXgetnodecnt");
+    lib_->GetFunction(&CPXXgetnumcols, "CPXgetnumcols");
+    lib_->GetFunction(&CPXXgetnumrows, "CPXgetnumrows");
+    lib_->GetFunction(&CPXXgetobjval, "CPXgetobjval");
+    lib_->GetFunction(&CPXXgetpi, "CPXgetpi");
+    lib_->GetFunction(&CPXXgetstat, "CPXgetstat");
+    lib_->GetFunction(&CPXXgetx, "CPXgetx");
+    lib_->GetFunction(&CPXXlpopt, "CPXlpopt");
+    lib_->GetFunction(&CPXXmipopt, "CPXmipopt");
+    lib_->GetFunction(&CPXXnewcols, "CPXnewcols");
+    lib_->GetFunction(&CPXXnewrows, "CPXnewrows");
+    lib_->GetFunction(&CPXXopenCPLEX, "CPXopenCPLEX");
+    lib_->GetFunction(&CPXXreadcopyparam, "CPXreadcopyparam");
+    lib_->GetFunction(&CPXXsetdblparam, "CPXsetdblparam");
+    lib_->GetFunction(&CPXXsetintparam, "CPXsetintparam");
+    lib_->GetFunction(&CPXXsolninfo, "CPXsolninfo");
+    lib_->GetFunction(&CPXXversion, "CPXversion");
+    lib_->GetFunction(&CPXXversionnumber, "CPXversionnumber");
+    lib_->GetFunction(&CPXEsetobjoffset, "CPXEsetobjoffset");
   } catch (const std::runtime_error& e) {
     LOG(DFATAL) << e.what();
     throw;
@@ -638,9 +641,8 @@ void CplexInterface::ClearConstraint(MPConstraint *const constraint) {
     unique_ptr<CPXDIM[]> colind(new CPXDIM[len]);
     unique_ptr<double[]> val(new double[len]);
     CPXDIM j = 0;
-    CoeffMap const &coeffs = constraint->coefficients_;
-    for (CoeffMap::const_iterator it(coeffs.begin()); it != coeffs.end();
-         ++it) {
+    const auto& coeffs = constraint->coefficients_;
+    for (auto it(coeffs.begin()); it != coeffs.end(); ++it) {
       CPXDIM const col = it->first->index();
       if (variable_is_extracted(col)) {
         rowind[j] = row;
@@ -696,9 +698,8 @@ void CplexInterface::ClearObjective() {
     unique_ptr<CPXDIM[]> ind(new CPXDIM[cols]);
     unique_ptr<double[]> zero(new double[cols]);
     CPXDIM j = 0;
-    CoeffMap const &coeffs = solver_->objective_->coefficients_;
-    for (CoeffMap::const_iterator it(coeffs.begin()); it != coeffs.end();
-         ++it) {
+    const auto& coeffs = solver_->objective_->coefficients_;
+    for (auto it(coeffs.begin()); it != coeffs.end(); ++it) {
       CPXDIM const idx = it->first->index();
       // We only need to reset variables that have been extracted.
       if (variable_is_extracted(idx)) {
@@ -893,9 +894,8 @@ void CplexInterface::ExtractNewVariables() {
         for (int i = 0; i < last_constraint_index_; ++i) {
           MPConstraint const *const ct = solver_->constraints_[i];
           CHECK(constraint_is_extracted(ct->index()));
-          CoeffMap const &coeffs = ct->coefficients_;
-          for (CoeffMap::const_iterator it(coeffs.begin()); it != coeffs.end();
-               ++it) {
+          const auto& coeffs = ct->coefficients_;
+          for (auto it(coeffs.begin()); it != coeffs.end(); ++it) {
             int const idx = it->first->index();
             if (variable_is_extracted(idx) && idx > last_variable_index_) {
               collen[idx - last_variable_index_]++;
@@ -932,9 +932,8 @@ void CplexInterface::ExtractNewVariables() {
           for (int i = 0; i < last_constraint_index_; ++i) {
             MPConstraint const *const ct = solver_->constraints_[i];
             CPXDIM const row = ct->index();
-            CoeffMap const &coeffs = ct->coefficients_;
-            for (CoeffMap::const_iterator it(coeffs.begin());
-                 it != coeffs.end(); ++it) {
+            const auto& coeffs = ct->coefficients_;
+            for (auto it(coeffs.begin()); it != coeffs.end(); ++it) {
               int const idx = it->first->index();
               if (variable_is_extracted(idx) && idx > last_variable_index_) {
                 CPXNNZ const nz = cmatbeg[idx]++;
@@ -1054,9 +1053,8 @@ void CplexInterface::ExtractNewConstraints() {
 
           // Setup left-hand side of constraint.
           rmatbeg[nextRow] = nextNz;
-          CoeffMap const &coeffs = ct->coefficients_;
-          for (CoeffMap::const_iterator it(coeffs.begin()); it != coeffs.end();
-               ++it) {
+          const auto& coeffs = ct->coefficients_;
+          for (auto it(coeffs.begin()); it != coeffs.end(); ++it) {
             CPXDIM const idx = it->first->index();
             if (variable_is_extracted(idx)) {
               DCHECK_LT(nextNz, cols);
@@ -1107,8 +1105,8 @@ void CplexInterface::ExtractObjective() {
     val[j] = 0.0;
   }
 
-  CoeffMap const &coeffs = solver_->objective_->coefficients_;
-  for (CoeffMap::const_iterator it = coeffs.begin(); it != coeffs.end(); ++it) {
+  const auto& coeffs = solver_->objective_->coefficients_;
+  for (auto it = coeffs.begin(); it != coeffs.end(); ++it) {
     CPXDIM const idx = it->first->index();
     if (variable_is_extracted(idx)) {
       DCHECK_LT(idx, cols);
