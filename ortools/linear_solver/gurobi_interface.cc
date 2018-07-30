@@ -266,7 +266,7 @@ GurobiInterface::GurobiInterface(MPSolver* const solver, bool mip)
     throw;
   }
 
-  int ret = GRBloadenv(&env_, nullptr);
+  const int ret = GRBloadenv(&env_, nullptr);
   if (ret != 0 || env_ == nullptr) {
     std::string err_msg = GRBgeterrormsg(env_);
     LOG(DFATAL) << "Error: could not create environment: " << err_msg;
