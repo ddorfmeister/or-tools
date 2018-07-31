@@ -23,7 +23,6 @@
 #include <windows.h>
 #elif defined(__GNUC__)
 #include <dlfcn.h>
-#define __stdcall
 #endif
 
 #define NAMEOF(x) #x
@@ -40,11 +39,7 @@ class DynamicLibrary {
     static std::function<Ret(Args...)> CreateFunction(
         const void* function_address) {
       return std::function<Ret(Args...)>(
-        reinterpret_cast<Ret(
-#if defined(_MSC_VER)
-          __stdcall // TODO: possibly not applicable for all solvers
-#endif
-          *)(Args...)>(function_address));
+        reinterpret_cast<Ret(*)(Args...)>(function_address));
     }
   };
 

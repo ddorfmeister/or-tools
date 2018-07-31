@@ -3397,6 +3397,7 @@ $(SRC_DIR)/ortools/linear_solver/scip_interface.cc: ;
 $(OBJ_DIR)/linear_solver/scip_interface.$O: \
  $(SRC_DIR)/ortools/linear_solver/scip_interface.cc \
  $(SRC_DIR)/ortools/base/commandlineflags.h \
+ $(SRC_DIR)/ortools/base/dynamic_library.h \
  $(SRC_DIR)/ortools/base/hash.h \
  $(SRC_DIR)/ortools/base/integral_types.h \
  $(SRC_DIR)/ortools/base/logging.h \

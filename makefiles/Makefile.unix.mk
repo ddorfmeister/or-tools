@@ -111,17 +111,7 @@ ifeq ($(PLATFORM),LINUX)
   GLPK_LNK = $(UNIX_GLPK_DIR)/lib/libglpk.a
   endif
   ifdef UNIX_SCIP_DIR
-    ifeq ($(PTRLENGTH),64)
-      SCIP_ARCH = linux.x86_64.gnu.opt
-    else
-      SCIP_ARCH = linux.x86.gnu.opt
-    endif
-    SCIP_LNK = \
- $(UNIX_SCIP_DIR)/lib/static/libscip.$(SCIP_ARCH).a \
- $(UNIX_SCIP_DIR)/lib/static/libnlpi.cppad.$(SCIP_ARCH).a \
- $(UNIX_SCIP_DIR)/lib/static/liblpispx2.$(SCIP_ARCH).a \
- $(UNIX_SCIP_DIR)/lib/static/libsoplex.$(SCIP_ARCH).a \
- $(UNIX_SCIP_DIR)/lib/static/libtpitny.$(SCIP_ARCH).a
+    # nothing to do
   endif
   ifdef UNIX_GUROBI_DIR
     ifeq ($(PTRLENGTH),64)
@@ -181,13 +171,7 @@ ifeq ($(PLATFORM),MACOSX)
     GLPK_LNK = $(UNIX_GLPK_DIR)/lib/libglpk.a
   endif
   ifdef UNIX_SCIP_DIR
-    SCIP_ARCH = darwin.x86_64.gnu.opt
-    SCIP_LNK = \
- -force_load $(UNIX_SCIP_DIR)/lib/static/libscip.$(SCIP_ARCH).a \
- $(UNIX_SCIP_DIR)/lib/static/libnlpi.cppad.$(SCIP_ARCH).a \
- -force_load $(UNIX_SCIP_DIR)/lib/static/liblpispx2.$(SCIP_ARCH).a \
- -force_load $(UNIX_SCIP_DIR)/lib/static/libsoplex.$(SCIP_ARCH).a \
- -force_load $(UNIX_SCIP_DIR)/lib/static/libtpitny.$(SCIP_ARCH).a
+    # nothing to do 
   endif
   ifdef UNIX_GUROBI_DIR
     GUROBI_LNK = \
@@ -236,7 +220,7 @@ DEPENDENCIES_INC = -I$(INC_DIR) -I$(EX_DIR) -I$(GEN_DIR) \
 CFLAGS = $(DEBUG) $(DEPENDENCIES_INC)
 JNIFLAGS = $(JNIDEBUG) $(DEPENDENCIES_INC)
 LDFLAGS += $(ZLIB_LNK) $(SYS_LNK) $(LINK_FLAGS)
-DEPENDENCIES_LNK = $(GLPK_LNK) $(SCIP_LNK) $(GUROBI_LNK) $(CPLEX_LNK)
+DEPENDENCIES_LNK = $(GLPK_LNK) $(GUROBI_LNK) $(CPLEX_LNK)
 
 OR_TOOLS_LNK =
 OR_TOOLS_LDFLAGS = $(ZLIB_LNK) $(SYS_LNK) $(LINK_FLAGS)
