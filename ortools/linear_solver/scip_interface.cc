@@ -19,6 +19,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <functional>
 
 #include "ortools/base/commandlineflags.h"
 #include "ortools/base/hash.h"
@@ -259,13 +260,17 @@ SCIPInterface::SCIPInterface(MPSolver* solver)
     lib_->GetFunction(&SCIPtrySolFree, NAMEOF(SCIPtrySolFree));
   } catch (const std::runtime_error& e) {
     LOG(DFATAL) << e.what();
+    delete lib_;
     throw;
   }
 
   CreateSCIP();
 }
 
-SCIPInterface::~SCIPInterface() { DeleteSCIP(); }
+SCIPInterface::~SCIPInterface() {
+  DeleteSCIP();
+  delete lib_;
+}
 
 void SCIPInterface::Reset() {
   DeleteSCIP();

@@ -99,14 +99,12 @@ PYTHON_VERSION = $(WINDOWS_PYTHON_VERSION)
 PYTHON_INC=/I$(WINDOWS_PATH_TO_PYTHON)\\include
 PYTHON_LNK="$(WINDOWS_PATH_TO_PYTHON)\\libs\\python$(PYTHON_VERSION).lib"
 
-# This is needed to find GLPK include files and libraries.
+# This is needed to find GLPK include files.
 ifdef WINDOWS_GLPK_DIR
 GLPK_INC = /I$(WINDOWS_GLPK_DIR)\\include /DUSE_GLPK
 GLPK_SWIG = -DUSE_GLPK
-DYNAMIC_GLPK_LNK = $(WINDOWS_GLPK_DIR)\\lib\\glpk.lib
-STATIC_GLPK_LNK = $(WINDOWS_GLPK_DIR)\\lib\\glpk.lib
 endif
-# This is needed to find SCIP include files and libraries.
+# This is needed to find SCIP include files.
 ifdef WINDOWS_SCIP_DIR
   SCIP_INC = /I$(WINDOWS_SCIP_DIR)\\include /DUSE_SCIP
   SCIP_SWIG = -DUSE_SCIP
@@ -148,7 +146,7 @@ STATIC_PROTOBUF_LNK = $(WINDOWS_PROTOBUF_DIR)\\lib\\libprotobuf.lib
 DYNAMIC_GLOG_LNK = $(WINDOWS_PROTOBUF_DIR)\\lib\\glog.lib
 STATIC_GLOG_LNK = $(WINDOWS_PROTOBUF_DIR)\\lib\\glog.lib
 SYS_LNK=psapi.lib ws2_32.lib shlwapi.lib
-DEPENDENCIES_LNK = $(STATIC_CBC_LNK) $(STATIC_CLP_LNK) $(STATIC_GLPK_LNK) $(STATIC_GLOG_LNK) $(STATIC_GFLAGS_LNK) $(STATIC_PROTOBUF_LNK)
+DEPENDENCIES_LNK = $(STATIC_CBC_LNK) $(STATIC_CLP_LNK) $(STATIC_GLOG_LNK) $(STATIC_GFLAGS_LNK) $(STATIC_PROTOBUF_LNK)
 LDFLAGS = $(ZLIB_LNK) $(SYS_LNK)
 
 OR_TOOLS_LDFLAGS = $(ZLIB_LNK) $(SYS_LNK)

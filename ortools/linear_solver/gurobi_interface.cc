@@ -263,6 +263,7 @@ GurobiInterface::GurobiInterface(MPSolver* const solver, bool mip)
     lib_->GetFunction(&GRBwrite, NAMEOF(GRBwrite));
   } catch (const std::runtime_error& e) {
     LOG(DFATAL) << e.what();
+    delete lib_;
     throw;
   }
 
@@ -289,6 +290,7 @@ GurobiInterface::GurobiInterface(MPSolver* const solver, bool mip)
 GurobiInterface::~GurobiInterface() {
   CheckedGurobiCall(GRBfreemodel(model_));
   GRBfreeenv(env_);
+  delete lib_;
 }
 
 // ------ Model modifications and extraction -----
