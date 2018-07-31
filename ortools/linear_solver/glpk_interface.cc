@@ -23,6 +23,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <functional>
 
 #include "ortools/base/commandlineflags.h"
 #include "ortools/base/hash.h"
@@ -31,6 +32,7 @@
 #include "ortools/base/port.h"
 #include "ortools/base/stringprintf.h"
 #include "ortools/base/timer.h"
+#include "ortools/base/dynamic_library.h"
 #include "ortools/linear_solver/linear_solver.h"
 
 extern "C" {
@@ -64,23 +66,47 @@ void GLPKGatherInformationCallback(glp_tree* tree, void* info) {
   CHECK(tree != nullptr);
   CHECK(info != nullptr);
   GLPKInformation* glpk_info = reinterpret_cast<GLPKInformation*>(info);
-  switch (glp_ios_reason(tree)) {
-    // The best bound and the number of nodes change only when GLPK
-    // branches, generates cuts or finds an integer solution.
-    case GLP_ISELECT:
-    case GLP_IROWGEN:
-    case GLP_IBINGO: {
-      // Get total number of nodes
-      glp_ios_tree_size(tree, nullptr, nullptr, &glpk_info->num_all_nodes_);
-      // Get best bound
-      int node_id = glp_ios_best_node(tree);
-      if (node_id > 0) {
-        glpk_info->best_objective_bound_ = glp_ios_node_bound(tree, node_id);
+
+  try {
+    // TODO: library name should be configurable at runtime
+    auto library_name =
+#if defined(_MSC_VER)
+    "glpk_4_65.dll";
+#elif defined(__GNUC__)
+    "libglpk.so";
+#endif
+    DynamicLibrary lib(library_name);
+    auto glp_ios_best_node =
+        lib.GetFunction<int(glp_tree*)>(NAMEOF(glp_ios_best_node));
+    auto glp_ios_node_bound =
+        lib.GetFunction<double(glp_tree*, int)>(NAMEOF(glp_ios_node_bound));
+    auto glp_ios_reason =
+        lib.GetFunction<int(glp_tree*)>(NAMEOF(glp_ios_reason));
+    auto glp_ios_tree_size =
+        lib.GetFunction<void(glp_tree*, int*, int*, int*)>(
+          NAMEOF(glp_ios_tree_size));
+
+    switch (glp_ios_reason(tree)) {
+      // The best bound and the number of nodes change only when GLPK
+      // branches, generates cuts or finds an integer solution.
+      case GLP_ISELECT:
+      case GLP_IROWGEN:
+      case GLP_IBINGO: {
+        // Get total number of nodes
+        glp_ios_tree_size(tree, nullptr, nullptr, &glpk_info->num_all_nodes_);
+        // Get best bound
+        int node_id = glp_ios_best_node(tree);
+        if (node_id > 0) {
+          glpk_info->best_objective_bound_ = glp_ios_node_bound(tree, node_id);
+        }
+        break;
       }
-      break;
+      default:
+        break;
     }
-    default:
-      break;
+  } catch (const std::runtime_error& e) {
+    LOG(DFATAL) << e.what();
+    throw;
   }
 }
 
@@ -210,11 +236,121 @@ class GLPKInterface : public MPSolverInterface {
   glp_iocp mip_param_;
   // For the callback
   std::unique_ptr<GLPKInformation> mip_callback_info_;
+
+  DynamicLibrary* lib_;
+
+  std::function<int(glp_prob*, int)> glp_add_cols;
+  std::function<int(glp_prob*, int)> glp_add_rows;
+  std::function<void(glp_prob*, int)> glp_adv_basis;
+  std::function<int(glp_prob*)> glp_bf_exists;
+  std::function<glp_prob*(void)> glp_create_prob;
+  std::function<void(glp_prob*)> glp_delete_prob;
+  std::function<int(glp_prob*)> glp_factorize;
+  std::function<void(glp_prob*, double[])> glp_ftran;
+  std::function<int(glp_prob*, int)> glp_get_bhead;
+  std::function<double(glp_prob*, int)> glp_get_col_dual;
+  std::function<double(glp_prob*, int)> glp_get_col_prim;
+  std::function<int(glp_prob*, int)> glp_get_col_stat;
+  std::function<int(glp_prob*)> glp_get_it_cnt;
+  std::function<int(glp_prob*, int, int[], double[])> glp_get_mat_col;
+  std::function<int(glp_prob*)> glp_get_num_cols;
+  std::function<int(glp_prob*)> glp_get_num_rows;
+  std::function<double(glp_prob*)> glp_get_obj_val;
+  std::function<double(glp_prob*, int)> glp_get_rii;
+  std::function<double(glp_prob*, int)> glp_get_row_dual;
+  std::function<int(glp_prob*, int)> glp_get_row_stat;
+  std::function<double(glp_prob*, int)> glp_get_sjj;
+  std::function<int(glp_prob*)> glp_get_status;
+  std::function<void(glp_iocp*)> glp_init_iocp;
+  std::function<void(glp_smcp*)> glp_init_smcp;
+  std::function<int(glp_prob*, const glp_iocp*)> glp_intopt;
+  std::function<int(glp_tree*)> glp_ios_best_node;
+  std::function<double(glp_tree*, int)> glp_ios_node_bound;
+  std::function<int(glp_tree*)> glp_ios_reason;
+  std::function<void(glp_tree*, int*, int*, int*)> glp_ios_tree_size;
+  std::function<void(glp_prob*, int, const int[], const int[], const double[])> glp_load_matrix;
+  std::function<double(glp_prob*, int)> glp_mip_col_val;
+  std::function<double(glp_prob*)> glp_mip_obj_val;
+  std::function<int(glp_prob*)> glp_mip_status;
+  std::function<void(glp_prob*, int)> glp_scale_prob;
+  std::function<void(glp_prob*, int, int, double, double)> glp_set_col_bnds;
+  std::function<int(glp_prob*, int, int)> glp_set_col_kind;
+  std::function<void(glp_prob*, int, const char*)> glp_set_col_name;
+  std::function<void(glp_prob*, int, int, const int[], const double[])> glp_set_mat_row;
+  std::function<void(glp_prob*, int, double)> glp_set_obj_coef;
+  std::function<void(glp_prob*, int)> glp_set_obj_dir;
+  std::function<void(glp_prob*, const char*)> glp_set_prob_name;
+  std::function<void(glp_prob*, int, int, double, double)> glp_set_row_bnds;
+  std::function<void(glp_prob*, int, const char*)> glp_set_row_name;
+  std::function<int(glp_prob*, const glp_smcp*)> glp_simplex;
+  std::function<int(int)> glp_term_out;
+  std::function<const char*(void)> glp_version;
 };
 
 // Creates a LP/MIP instance with the specified name and minimization objective.
 GLPKInterface::GLPKInterface(MPSolver* const solver, bool mip)
     : MPSolverInterface(solver), lp_(nullptr), mip_(mip) {
+    try {
+    // TODO: library name should be configurable at runtime
+    auto library_name =
+#if defined(_MSC_VER)
+    "glpk_4_65.dll";
+#elif defined(__GNUC__)
+    "libglpk.so";
+#endif
+    lib_ = new DynamicLibrary(library_name);
+    lib_->GetFunction(&glp_add_cols, NAMEOF(glp_add_cols));
+    lib_->GetFunction(&glp_add_rows, NAMEOF(glp_add_rows));
+    lib_->GetFunction(&glp_adv_basis, NAMEOF(glp_adv_basis));
+    lib_->GetFunction(&glp_bf_exists, NAMEOF(glp_bf_exists));
+    lib_->GetFunction(&glp_create_prob, NAMEOF(glp_create_prob));
+    lib_->GetFunction(&glp_delete_prob, NAMEOF(glp_delete_prob));
+    lib_->GetFunction(&glp_factorize, NAMEOF(glp_factorize));
+    lib_->GetFunction(&glp_ftran, NAMEOF(glp_ftran));
+    lib_->GetFunction(&glp_get_bhead, NAMEOF(glp_get_bhead));
+    lib_->GetFunction(&glp_get_col_dual, NAMEOF(glp_get_col_dual));
+    lib_->GetFunction(&glp_get_col_prim, NAMEOF(glp_get_col_prim));
+    lib_->GetFunction(&glp_get_col_stat, NAMEOF(glp_get_col_stat));
+    lib_->GetFunction(&glp_get_it_cnt, NAMEOF(glp_get_it_cnt));
+    lib_->GetFunction(&glp_get_mat_col, NAMEOF(glp_get_mat_col));
+    lib_->GetFunction(&glp_get_num_cols, NAMEOF(glp_get_num_cols));
+    lib_->GetFunction(&glp_get_num_rows, NAMEOF(glp_get_num_rows));
+    lib_->GetFunction(&glp_get_obj_val, NAMEOF(glp_get_obj_val));
+    lib_->GetFunction(&glp_get_rii, NAMEOF(glp_get_rii));
+    lib_->GetFunction(&glp_get_row_dual, NAMEOF(glp_get_row_dual));
+    lib_->GetFunction(&glp_get_row_stat, NAMEOF(glp_get_row_stat));
+    lib_->GetFunction(&glp_get_sjj, NAMEOF(glp_get_sjj));
+    lib_->GetFunction(&glp_get_status, NAMEOF(glp_get_status));
+    lib_->GetFunction(&glp_init_iocp, NAMEOF(glp_init_iocp));
+    lib_->GetFunction(&glp_init_smcp, NAMEOF(glp_init_smcp));
+    lib_->GetFunction(&glp_intopt, NAMEOF(glp_intopt));
+    lib_->GetFunction(&glp_ios_best_node, NAMEOF(glp_ios_best_node));
+    lib_->GetFunction(&glp_ios_node_bound, NAMEOF(glp_ios_node_bound));
+    lib_->GetFunction(&glp_ios_reason, NAMEOF(glp_ios_reason));
+    lib_->GetFunction(&glp_ios_tree_size, NAMEOF(glp_ios_tree_size));
+    lib_->GetFunction(&glp_load_matrix, NAMEOF(glp_load_matrix));
+    lib_->GetFunction(&glp_mip_col_val, NAMEOF(glp_mip_col_val));
+    lib_->GetFunction(&glp_mip_obj_val, NAMEOF(glp_mip_obj_val));
+    lib_->GetFunction(&glp_mip_status, NAMEOF(glp_mip_status));
+    lib_->GetFunction(&glp_scale_prob, NAMEOF(glp_scale_prob));
+    lib_->GetFunction(&glp_set_col_bnds, NAMEOF(glp_set_col_bnds));
+    lib_->GetFunction(&glp_set_col_kind, NAMEOF(glp_set_col_kind));
+    lib_->GetFunction(&glp_set_col_name, NAMEOF(glp_set_col_name));
+    lib_->GetFunction(&glp_set_mat_row, NAMEOF(glp_set_mat_row));
+    lib_->GetFunction(&glp_set_obj_coef, NAMEOF(glp_set_obj_coef));
+    lib_->GetFunction(&glp_set_obj_dir, NAMEOF(glp_set_obj_dir));
+    lib_->GetFunction(&glp_set_prob_name, NAMEOF(glp_set_prob_name));
+    lib_->GetFunction(&glp_set_row_bnds, NAMEOF(glp_set_row_bnds));
+    lib_->GetFunction(&glp_set_row_name, NAMEOF(glp_set_row_name));
+    lib_->GetFunction(&glp_simplex, NAMEOF(glp_simplex));
+    lib_->GetFunction(&glp_term_out, NAMEOF(glp_term_out));
+    lib_->GetFunction(&glp_version, NAMEOF(glp_version));
+  } catch (const std::runtime_error& e) {
+    LOG(DFATAL) << e.what();
+    delete lib_;
+    throw;
+  }
+  
   lp_ = glp_create_prob();
   glp_set_prob_name(lp_, solver_->name_.c_str());
   glp_set_obj_dir(lp_, GLP_MIN);
@@ -226,6 +362,7 @@ GLPKInterface::~GLPKInterface() {
   CHECK(lp_ != nullptr);
   glp_delete_prob(lp_);
   lp_ = nullptr;
+  delete lib_;
 }
 
 void GLPKInterface::Reset() {

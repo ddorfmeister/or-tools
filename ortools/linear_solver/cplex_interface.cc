@@ -343,6 +343,7 @@ CplexInterface::CplexInterface(MPSolver *const solver, bool mip)
     lib_->GetFunction(&CPXEsetobjoffset, "CPXEsetobjoffset");
   } catch (const std::runtime_error& e) {
     LOG(DFATAL) << e.what();
+    delete lib_;
     throw;
   }
 
@@ -364,6 +365,7 @@ CplexInterface::CplexInterface(MPSolver *const solver, bool mip)
 CplexInterface::~CplexInterface() {
   CHECK_STATUS(CPXXfreeprob(mEnv, &mLp));
   CHECK_STATUS(CPXXcloseCPLEX(&mEnv));
+  delete lib_;
 }
 
 std::string CplexInterface::SolverVersion() const {

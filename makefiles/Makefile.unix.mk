@@ -108,7 +108,7 @@ ifeq ($(PLATFORM),LINUX)
   # This is needed to find libz.a
   ZLIB_LNK = -lz
   ifdef UNIX_GLPK_DIR
-  GLPK_LNK = $(UNIX_GLPK_DIR)/lib/libglpk.a
+    # nothing to do
   endif
   ifdef UNIX_SCIP_DIR
     # nothing to do
@@ -168,7 +168,7 @@ ifeq ($(PLATFORM),MACOSX)
 
   ZLIB_LNK = -lz
   ifdef UNIX_GLPK_DIR
-    GLPK_LNK = $(UNIX_GLPK_DIR)/lib/libglpk.a
+    # nothing to do
   endif
   ifdef UNIX_SCIP_DIR
     # nothing to do 
@@ -220,7 +220,7 @@ DEPENDENCIES_INC = -I$(INC_DIR) -I$(EX_DIR) -I$(GEN_DIR) \
 CFLAGS = $(DEBUG) $(DEPENDENCIES_INC)
 JNIFLAGS = $(JNIDEBUG) $(DEPENDENCIES_INC)
 LDFLAGS += $(ZLIB_LNK) $(SYS_LNK) $(LINK_FLAGS)
-DEPENDENCIES_LNK = $(GLPK_LNK) $(GUROBI_LNK) $(CPLEX_LNK)
+DEPENDENCIES_LNK = $(GUROBI_LNK) $(CPLEX_LNK)
 
 OR_TOOLS_LNK =
 OR_TOOLS_LDFLAGS = $(ZLIB_LNK) $(SYS_LNK) $(LINK_FLAGS)
