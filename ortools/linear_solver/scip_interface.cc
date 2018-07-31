@@ -27,6 +27,7 @@
 #include "ortools/base/port.h"
 #include "ortools/base/stringprintf.h"
 #include "ortools/base/timer.h"
+#include "ortools/base/dynamic_library.h"
 #include "ortools/linear_solver/linear_solver.h"
 #include "scip/scip.h"
 #include "scip/scipdefplugins.h"
@@ -121,10 +122,146 @@ class SCIPInterface : public MPSolverInterface {
   SCIP_VAR* objective_offset_variable_;
   std::vector<SCIP_VAR*> scip_variables_;
   std::vector<SCIP_CONS*> scip_constraints_;
+  DynamicLibrary* lib_;
+
+  std::function<SCIP_RETCODE(SCIP*, SCIP_CONS*, SCIP_VAR*, SCIP_Real)>
+      SCIPaddCoefLinear;
+  std::function<SCIP_RETCODE(SCIP*, SCIP_CONS*)> SCIPaddCons;
+  std::function<SCIP_RETCODE(SCIP*, SCIP_SOL**, SCIP_Bool*)> SCIPaddSolFree;
+  std::function<SCIP_RETCODE(SCIP*, SCIP_VAR*)> SCIPaddVar;
+  std::function<SCIP_RETCODE(SCIP*, SCIP_SOL*, SCIP_Bool, SCIP_Bool,
+                             SCIP_Bool, SCIP_Bool, SCIP_Bool, SCIP_Bool*)>
+      SCIPcheckSol;
+  std::function<SCIP_RETCODE(SCIP*, SCIP_CONS*, SCIP_Real)> SCIPchgLhsLinear;
+  std::function<SCIP_RETCODE(SCIP*, SCIP_CONS*, SCIP_Real)> SCIPchgRhsLinear;
+  std::function<SCIP_RETCODE(SCIP*, SCIP_VAR*, SCIP_Real)> SCIPchgVarLb;
+  std::function<SCIP_RETCODE(SCIP*, SCIP_VAR*, SCIP_Real)> SCIPchgVarObj;
+  std::function<SCIP_RETCODE(SCIP*, SCIP_VAR*, SCIP_VARTYPE, SCIP_Bool*)>
+      SCIPchgVarType;
+  std::function<SCIP_RETCODE(SCIP*, SCIP_VAR*, SCIP_Real)> SCIPchgVarUb;
+  std::function<SCIP_RETCODE(SCIP**)> SCIPcreate;
+  std::function<SCIP_RETCODE(
+      SCIP*, SCIP_CONS**, const char*, int, SCIP_VAR**, SCIP_Real*,
+      SCIP_Real, SCIP_Real, SCIP_Bool, SCIP_Bool, SCIP_Bool, SCIP_Bool,
+      SCIP_Bool, SCIP_Bool, SCIP_Bool, SCIP_Bool, SCIP_Bool, SCIP_Bool)>
+      SCIPcreateConsLinear;
+  std::function<SCIP_RETCODE(SCIP*, SCIP_SOL**, SCIP_HEUR*)>
+      SCIPcreatePartialSol;
+  std::function<SCIP_RETCODE(SCIP*, const char*, SCIP_DECL_PROBDELORIG(*),
+                             SCIP_DECL_PROBTRANS(*), SCIP_DECL_PROBDELTRANS(*),
+                             SCIP_DECL_PROBINITSOL(*), SCIP_DECL_PROBEXITSOL(*),
+                             SCIP_DECL_PROBCOPY(*), SCIP_PROBDATA*)>
+      SCIPcreateProb;
+  std::function<SCIP_RETCODE(SCIP*, SCIP_SOL**, SCIP_HEUR*)> SCIPcreateSol;
+  std::function<SCIP_RETCODE(SCIP*, SCIP_VAR**, const char*, SCIP_Real,
+                             SCIP_Real, SCIP_Real, SCIP_VARTYPE, SCIP_Bool,
+                             SCIP_Bool, SCIP_DECL_VARDELORIG(*),
+                             SCIP_DECL_VARTRANS(*), SCIP_DECL_VARDELTRANS(*),
+                             SCIP_DECL_VARCOPY(*), SCIP_VARDATA*)>
+      SCIPcreateVar;
+  std::function<SCIP_RETCODE(SCIP**)> SCIPfree;
+  std::function<SCIP_RETCODE(SCIP*)> SCIPfreeTransform;
+  std::function<SCIP_SOL*(SCIP*)> SCIPgetBestSol;
+  std::function<SCIP_Real(SCIP*)> SCIPgetDualbound;
+  std::function<SCIP_Longint(SCIP*)> SCIPgetNLPIterations;
+  std::function<SCIP_Longint(SCIP*)> SCIPgetNNodes;
+  std::function<SCIP_Real(SCIP*, SCIP_SOL*)> SCIPgetSolOrigObj;
+  std::function<SCIP_Real(SCIP*, SCIP_SOL*, SCIP_VAR*)> SCIPgetSolVal;
+  std::function<SCIP_STATUS(SCIP*)> SCIPgetStatus;
+  std::function<SCIP_RETCODE(SCIP*)> SCIPincludeDefaultPlugins;
+  std::function<SCIP_RETCODE(SCIP*)> SCIPinterruptSolve;
+  std::function<SCIP_Bool(SCIP*)> SCIPisTransformed;
+  std::function<const char*(void)> SCIPlpiGetSolverName;
+  std::function<int(void)> SCIPmajorVersion;
+  std::function<int(void)> SCIPminorVersion;
+  std::function<SCIP_RETCODE(SCIP*, const char*)> SCIPreadParams;
+  std::function<SCIP_RETCODE(SCIP*, const char*)> SCIPreadSol;
+  std::function<SCIP_RETCODE(SCIP*, SCIP_CONS**)> SCIPreleaseCons;
+  std::function<SCIP_RETCODE(SCIP*, SCIP_VAR**)> SCIPreleaseVar;
+  std::function<SCIP_RETCODE(SCIP*, const char*)> SCIPresetParam;
+  std::function<SCIP_RETCODE(SCIP*)> SCIPresetParams;
+  std::function<SCIP_RETCODE(SCIP*, const char*, char)> SCIPsetCharParam;
+  std::function<SCIP_RETCODE(SCIP*, SCIP_PARAMEMPHASIS, SCIP_Bool)>
+      SCIPsetEmphasis;
+  std::function<SCIP_RETCODE(SCIP*, const char*, int)> SCIPsetIntParam;
+  std::function<void(SCIP*, SCIP_Bool)> SCIPsetMessagehdlrQuiet;
+  std::function<SCIP_RETCODE(SCIP*, SCIP_OBJSENSE)> SCIPsetObjsense;
+  std::function<SCIP_RETCODE(SCIP*, const char*, SCIP_Real)> SCIPsetRealParam;
+  std::function<SCIP_RETCODE(SCIP*, SCIP_SOL*, SCIP_VAR*, SCIP_Real)>
+      SCIPsetSolVal;
+  std::function<SCIP_RETCODE(SCIP*)> SCIPsolve;
+  std::function<int(void)> SCIPtechVersion;
+  std::function<SCIP_RETCODE(SCIP*, SCIP_SOL**, SCIP_Bool, SCIP_Bool,
+                             SCIP_Bool, SCIP_Bool, SCIP_Bool, SCIP_Bool*)>
+      SCIPtrySolFree;
 };
 
 SCIPInterface::SCIPInterface(MPSolver* solver)
     : MPSolverInterface(solver), scip_(nullptr) {
+  try {
+    // TODO: library name should be configurable at runtime
+    auto library_name =
+#if defined(_MSC_VER)
+    "scip.dll";
+#elif defined(__GNUC__)
+    "libscip.so";
+#endif
+    lib_ = new DynamicLibrary(library_name);
+    lib_->GetFunction(&SCIPaddCoefLinear, NAMEOF(SCIPaddCoefLinear));
+    lib_->GetFunction(&SCIPaddCons, NAMEOF(SCIPaddCons));
+    lib_->GetFunction(&SCIPaddSolFree, NAMEOF(SCIPaddSolFree));
+    lib_->GetFunction(&SCIPaddVar, NAMEOF(SCIPaddVar));
+    lib_->GetFunction(&SCIPcheckSol, NAMEOF(SCIPcheckSol));
+    lib_->GetFunction(&SCIPchgLhsLinear, NAMEOF(SCIPchgLhsLinear));
+    lib_->GetFunction(&SCIPchgRhsLinear, NAMEOF(SCIPchgRhsLinear));
+    lib_->GetFunction(&SCIPchgVarLb, NAMEOF(SCIPchgVarLb));
+    lib_->GetFunction(&SCIPchgVarObj, NAMEOF(SCIPchgVarObj));
+    lib_->GetFunction(&SCIPchgVarType, NAMEOF(SCIPchgVarType));
+    lib_->GetFunction(&SCIPchgVarUb, NAMEOF(SCIPchgVarUb));
+    lib_->GetFunction(&SCIPcreate, NAMEOF(SCIPcreate));
+    lib_->GetFunction(&SCIPcreateConsLinear, NAMEOF(SCIPcreateConsLinear));
+    lib_->GetFunction(&SCIPcreatePartialSol, NAMEOF(SCIPcreatePartialSol));
+    lib_->GetFunction(&SCIPcreateProb, NAMEOF(SCIPcreateProb));
+    lib_->GetFunction(&SCIPcreateSol, NAMEOF(SCIPcreateSol));
+    lib_->GetFunction(&SCIPcreateVar, NAMEOF(SCIPcreateVar));
+    lib_->GetFunction(&SCIPfree, NAMEOF(SCIPfree));
+    lib_->GetFunction(&SCIPfreeTransform, NAMEOF(SCIPfreeTransform));
+    lib_->GetFunction(&SCIPgetBestSol, NAMEOF(SCIPgetBestSol));
+    lib_->GetFunction(&SCIPgetDualbound, NAMEOF(SCIPgetDualbound));
+    lib_->GetFunction(&SCIPgetNLPIterations, NAMEOF(SCIPgetNLPIterations));
+    lib_->GetFunction(&SCIPgetNNodes, NAMEOF(SCIPgetNNodes));
+    lib_->GetFunction(&SCIPgetSolOrigObj, NAMEOF(SCIPgetSolOrigObj));
+    lib_->GetFunction(&SCIPgetSolVal, NAMEOF(SCIPgetSolVal));
+    lib_->GetFunction(&SCIPgetStatus, NAMEOF(SCIPgetStatus));
+    lib_->GetFunction(&SCIPincludeDefaultPlugins,
+                      NAMEOF(SCIPincludeDefaultPlugins));
+    lib_->GetFunction(&SCIPinterruptSolve, NAMEOF(SCIPinterruptSolve));
+    lib_->GetFunction(&SCIPisTransformed, NAMEOF(SCIPisTransformed));
+    lib_->GetFunction(&SCIPlpiGetSolverName, NAMEOF(SCIPlpiGetSolverName));
+    lib_->GetFunction(&SCIPmajorVersion, NAMEOF(SCIPmajorVersion));
+    lib_->GetFunction(&SCIPminorVersion, NAMEOF(SCIPminorVersion));
+    lib_->GetFunction(&SCIPreadParams, NAMEOF(SCIPreadParams));
+    lib_->GetFunction(&SCIPreadSol, NAMEOF(SCIPreadSol));
+    lib_->GetFunction(&SCIPreleaseCons, NAMEOF(SCIPreleaseCons));
+    lib_->GetFunction(&SCIPreleaseVar, NAMEOF(SCIPreleaseVar));
+    lib_->GetFunction(&SCIPresetParam, NAMEOF(SCIPresetParam));
+    lib_->GetFunction(&SCIPresetParams, NAMEOF(SCIPresetParams));
+    lib_->GetFunction(&SCIPsetCharParam, NAMEOF(SCIPsetCharParam));
+    lib_->GetFunction(&SCIPsetEmphasis, NAMEOF(SCIPsetEmphasis));
+    lib_->GetFunction(&SCIPsetIntParam, NAMEOF(SCIPsetIntParam));
+    lib_->GetFunction(&SCIPsetMessagehdlrQuiet,
+                      NAMEOF(SCIPsetMessagehdlrQuiet));
+    lib_->GetFunction(&SCIPsetObjsense, NAMEOF(SCIPsetObjsense));
+    lib_->GetFunction(&SCIPsetRealParam, NAMEOF(SCIPsetRealParam));
+    lib_->GetFunction(&SCIPsetSolVal, NAMEOF(SCIPsetSolVal));
+    lib_->GetFunction(&SCIPsolve, NAMEOF(SCIPsolve));
+    lib_->GetFunction(&SCIPtechVersion, NAMEOF(SCIPtechVersion));
+    lib_->GetFunction(&SCIPtrySolFree, NAMEOF(SCIPtrySolFree));
+  } catch (const std::runtime_error& e) {
+    LOG(DFATAL) << e.what();
+    throw;
+  }
+
   CreateSCIP();
 }
 
