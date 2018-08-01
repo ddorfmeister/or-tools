@@ -125,10 +125,10 @@ ifeq ($(PLATFORM),LINUX)
   ifdef UNIX_CPLEX_DIR
     ifeq ($(PTRLENGTH),64)
       CPLEX_LNK = \
- -lm -lpthread
+ -lm -lpthread -ldl
     else
       CPLEX_LNK = \
- -lm -lpthread
+ -lm -lpthread -ldl
     endif
   endif
   SYS_LNK = -lrt -lpthread

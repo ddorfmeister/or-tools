@@ -504,13 +504,13 @@ void CplexInterface::MakeRhs(double lb, double ub, double &rhs, char &sense,
     range = ub - lb;
     sense = 'R';
   } else if (ub < CPX_INFBOUND ||
-             (fabs(ub) == CPX_INFBOUND && fabs(lb) > CPX_INFBOUND)) {
+             (std::abs(ub) == CPX_INFBOUND && std::abs(lb) > CPX_INFBOUND)) {
     // Finite upper, infinite lower bound -> this is a <= constraint
     rhs = ub;
     range = 0.0;
     sense = 'L';
   } else if (lb > -CPX_INFBOUND ||
-             (fabs(lb) == CPX_INFBOUND && fabs(ub) > CPX_INFBOUND)) {
+             (std::abs(lb) == CPX_INFBOUND && std::abs(ub) > CPX_INFBOUND)) {
     // Finite lower, infinite upper bound -> this is a >= constraint
     rhs = lb;
     range = 0.0;
@@ -524,9 +524,9 @@ void CplexInterface::MakeRhs(double lb, double ub, double &rhs, char &sense,
     // Note that we replace the infinite bound by CPX_INFBOUND since
     // bounds with larger magnitude may cause other CPLEX functions to
     // fail (for example the export to LP files).
-    DCHECK_GT(fabs(lb), CPX_INFBOUND);
-    DCHECK_GT(fabs(ub), CPX_INFBOUND);
-    if (fabs(lb) > fabs(ub)) {
+    DCHECK_GT(std::abs(lb), CPX_INFBOUND);
+    DCHECK_GT(std::abs(ub), CPX_INFBOUND);
+    if (std::abs(lb) > std::abs(ub)) {
       rhs = (lb < 0) ? -CPX_INFBOUND : CPX_INFBOUND;
       sense = 'G';
     } else {
