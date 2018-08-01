@@ -13,6 +13,8 @@
 
 // Initial version of this code was written by Daniel Junglas (IBM)
 
+#if defined(USE_CPLEX)
+
 #include <limits>
 #include <memory>
 #include <functional>
@@ -23,8 +25,6 @@
 #include "ortools/base/timer.h"
 #include "ortools/base/dynamic_library.h"
 #include "ortools/linear_solver/linear_solver.h"
-
-#if defined(USE_CPLEX)
 
 extern "C" {
 #include "ilcplex/cplexx.h"

@@ -116,22 +116,22 @@ ifeq ($(PLATFORM),LINUX)
   ifdef UNIX_GUROBI_DIR
     ifeq ($(PTRLENGTH),64)
       GUROBI_LNK = \
- -m64 -lc -ldl -lm -lpthread
+ -m64 -lc -lm -lpthread
     else
       GUROBI_LNK = \
- -m32 -lc -ldl -lm -lpthread
+ -m32 -lc -lm -lpthread
     endif
   endif
   ifdef UNIX_CPLEX_DIR
     ifeq ($(PTRLENGTH),64)
       CPLEX_LNK = \
- -lm -lpthread -ldl
+ -lm -lpthread
     else
       CPLEX_LNK = \
- -lm -lpthread -ldl
+ -lm -lpthread
     endif
   endif
-  SYS_LNK = -lrt -lpthread
+  SYS_LNK = -lrt -lpthread -ldl
   JAVA_INC = -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux
   JAVAC_BIN = $(shell $(WHICH) $(JAVA_HOME)/bin/javac)
   JAVA_BIN = $(shell $(WHICH) $(JAVA_HOME)/bin/java)
@@ -175,13 +175,13 @@ ifeq ($(PLATFORM),MACOSX)
   endif
   ifdef UNIX_GUROBI_DIR
     GUROBI_LNK = \
- -lc -ldl -lm -lpthread
+ -lc -lm -lpthread
   endif
   ifdef UNIX_CPLEX_DIR
     CPLEX_LNK = \
  -lm -lpthread -framework CoreFoundation -framework IOKit
   endif
-  SYS_LNK =
+  SYS_LNK = -ldl
   SET_COMPILER = CXX="$(CCC)"
   JAVA_INC = -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/darwin
   JAVAC_BIN = $(shell $(WHICH) $(JAVA_HOME)/bin/javac)
