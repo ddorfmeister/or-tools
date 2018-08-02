@@ -178,6 +178,9 @@ std::string ValidateLinearConstraint(const CpModelProto& model,
 
 std::string ValidateReservoirConstraint(const CpModelProto& model,
                                         const ConstraintProto& ct) {
+  if (ct.enforcement_literal_size() > 0) {
+    return "Reservoir does not support enforcement literals.";
+  }
   for (const int t : ct.reservoir().times()) {
     const IntegerVariableProto& time = model.variables(t);
     for (const int64 bound : time.domain()) {
@@ -194,6 +197,14 @@ std::string ValidateReservoirConstraint(const CpModelProto& model,
       return "Possible integer overflow in constraint: " +
              ProtobufDebugString(ct);
     }
+  }
+  if (ct.reservoir().actives_size() > 0 &&
+      ct.reservoir().actives_size() != ct.reservoir().times_size()) {
+    return "Wrong array length of actives variables";
+  }
+  if (ct.reservoir().demands_size() > 0 &&
+      ct.reservoir().demands_size() != ct.reservoir().times_size()) {
+    return "Wrong array length of demands variables";
   }
   return "";
 }
@@ -683,13 +694,16 @@ class ConstraintChecker {
     const int64 max_level = ct.reservoir().max_level();
     std::map<int64, int64> deltas;
     deltas[0] = 0;
+    const bool has_active_variables = ct.reservoir().actives_size() > 0;
     for (int i = 0; i < num_variables; i++) {
       const int64 time = Value(ct.reservoir().times(i));
       if (time < 0) {
         VLOG(1) << "reservoir times(" << i << ") is negative.";
         return false;
       }
-      deltas[time] += ct.reservoir().demands(i);
+      if (!has_active_variables || Value(ct.reservoir().actives(i)) == 1) {
+        deltas[time] += ct.reservoir().demands(i);
+      }
     }
     int64 current_level = 0;
     for (const auto& delta : deltas) {

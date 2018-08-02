@@ -75,6 +75,31 @@ int main() {
 }
 ```
 
+### Java code
+
+```java
+import com.google.ortools.sat.*;
+
+public class LiteralSample {
+
+  static {
+    System.loadLibrary("jniortools");
+  }
+
+  static void LiteralSample()
+  {
+    CpModel model = new CpModel();
+    IntVar x = model.newBoolVar("x");
+    ILiteral not_x = x.not();
+    System.out.println(not_x.shortString());
+  }
+
+  public static void main(String[] args) throws Exception {
+    LiteralSample();
+  }
+}
+```
+
 ### C\# code
 
 ```cs
@@ -174,6 +199,31 @@ int main() {
   operations_research::sat::BoolOrSample();
 
   return EXIT_SUCCESS;
+}
+```
+
+### Java code
+
+```java
+import com.google.ortools.sat.*;
+
+public class BoolOrSample {
+
+  static {
+    System.loadLibrary("jniortools");
+  }
+
+  static void BoolOrSample()
+  {
+    CpModel model = new CpModel();
+    IntVar x = model.newBoolVar("x");
+    IntVar y = model.newBoolVar("y");
+    model.addBoolOr(new ILiteral[] {x, y.not()});
+  }
+
+  public static void main(String[] args) throws Exception {
+    BoolOrSample();
+  }
 }
 ```
 
@@ -309,6 +359,43 @@ int main() {
   operations_research::sat::ReifiedSample();
 
   return EXIT_SUCCESS;
+}
+```
+
+### Java code
+
+```java
+import com.google.ortools.sat.*;
+
+public class ReifiedSample {
+
+  static {
+    System.loadLibrary("jniortools");
+  }
+
+  static void ReifiedSample()
+  {
+    CpModel model = new CpModel();
+
+    IntVar x = model.newBoolVar("x");
+    IntVar y = model.newBoolVar("y");
+    IntVar b = model.newBoolVar("b");
+
+    //  First version using a half-reified bool and.
+    model.addBoolAnd(new ILiteral[] {x, y.not()}).onlyEnforceIf(b);
+
+    // Second version using implications.
+    model.addImplication(b, x);
+    model.addImplication(b, y.not());
+
+    // Third version using bool or.
+    model.addBoolOr(new ILiteral[] {b.not(), x});
+    model.addBoolOr(new ILiteral[] {b.not(), y.not()});
+  }
+
+  public static void main(String[] args) throws Exception {
+    ReifiedSample();
+  }
 }
 ```
 
