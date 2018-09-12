@@ -105,12 +105,12 @@ PYTHON_LNK="$(WINDOWS_PATH_TO_PYTHON)\\libs\\python$(PYTHON_VERSION).lib"
 # This is needed to find GLPK include files.
 ifdef WINDOWS_GLPK_DIR
 GLPK_INC = /I$(WINDOWS_GLPK_DIR)\\include /DUSE_GLPK
-GLPK_SWIG = -DUSE_GLPK
+GLPK_SWIG = -I$(WINDOWS_GLPK_DIR)/include -DUSE_GLPK
 endif
 # This is needed to find SCIP include files.
 ifdef WINDOWS_SCIP_DIR
   SCIP_INC = /I$(WINDOWS_SCIP_DIR)\\include /DUSE_SCIP
-  SCIP_SWIG = -DUSE_SCIP
+  SCIP_SWIG = -I"$(WINDOWS_SCIP_DIR)/include" -DUSE_SCIP
 endif
 # This is needed to find CPLEX include files.
 ifdef WINDOWS_CPLEX_DIR
