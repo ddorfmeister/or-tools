@@ -51,7 +51,7 @@ class IntegerSumLE : public PropagatorInterface {
   // another IntegerSumLE constraint on the negated variables.
   IntegerSumLE(LiteralIndex reified_literal,
                const std::vector<IntegerVariable>& vars,
-               const std::vector<IntegerValue>& coefficients,
+               const std::vector<IntegerValue>& coeffs,
                IntegerValue upper_bound, Model* model);
 
   // We propagate:
@@ -212,11 +212,13 @@ inline std::function<void(Model*)> WeightedSumLowerOrEqual(
   // Special cases.
   CHECK_GE(vars.size(), 1);
   if (vars.size() == 1) {
-    CHECK_NE(coefficients[0], 0);
-    if (coefficients[0] > 0) {
-      return LowerOrEqual(vars[0], upper_bound / coefficients[0]);
+    const int64 c = coefficients[0];
+    CHECK_NE(c, 0);
+    if (c > 0) {
+      return LowerOrEqual(vars[0], upper_bound / c);
     } else {
-      return GreaterOrEqual(vars[0], upper_bound / coefficients[0]);
+      const int64 ceil_c = (upper_bound + c + 1) / c;
+      return GreaterOrEqual(vars[0], ceil_c);
     }
   }
   if (vars.size() == 2 && (coefficients[0] == 1 || coefficients[0] == -1) &&
@@ -385,7 +387,7 @@ inline std::function<void(Model*)> WeightedSumNotEqual(
 // Model-based function to create an IntegerVariable that corresponds to the
 // given weighted sum of other IntegerVariables.
 //
-// Note that this is templated so that it can seemlessly accept std::vector<int>
+// Note that this is templated so that it can seamlessly accept std::vector<int>
 // or std::vector<int64>.
 //
 // TODO(user): invert the coefficients/vars arguments.
@@ -526,7 +528,11 @@ inline std::function<void(Model*)> ProductConstraint(IntegerVariable a,
           model, new PositiveProductPropagator(NegationOf(a), NegationOf(b), p,
                                                integer_trail));
     } else {
-      LOG(FATAL) << "Not supported";
+      LOG(FATAL) << absl::StrFormat(
+          "Product not supported [%lld..%lld] * [%lld..%lld] == [%lld..%lld]",
+          model->Get(LowerBound(a)), model->Get(UpperBound(a)),
+          model->Get(LowerBound(b)), model->Get(UpperBound(b)),
+          model->Get(LowerBound(p)), model->Get(UpperBound(p)));
     }
   };
 }

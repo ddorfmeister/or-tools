@@ -15,28 +15,37 @@ STATIC_POST_LIB = .lib
 STATIC_LIB_SUFFIX = lib
 LINK_CMD = lib
 STATIC_LINK_CMD = lib
-
+# C++ relevant directory
+INC_DIR = $(OR_ROOT).
 SRC_DIR = $(OR_ROOT).
-EX_DIR  = $(OR_ROOT)examples
 GEN_DIR = $(OR_ROOT)ortools/gen
 GEN_PATH = $(subst /,$S,$(GEN_DIR))
-JAVA_EX_DIR  = $(OR_ROOT)examples/java
-JAVA_EX_PATH = $(subst /,$S,$(JAVA_EX_DIR))
-DOTNET_EX_DIR  = $(OR_ROOT)examples/dotnet
-DOTNET_EX_PATH = $(subst /,$S,$(DOTNET_EX_DIR))
 OBJ_DIR = $(OR_ROOT)objs
-CLASS_DIR = $(OR_ROOT)classes
 LIB_DIR = $(OR_ROOT)lib
 BIN_DIR = $(OR_ROOT)bin
-INC_DIR = $(OR_ROOT).
+EX_DIR  = $(OR_ROOT)examples
+EX_PATH = $(subst /,$S,$(EX_DIR))
+# Python relevant directory
+PYTHON_EX_DIR  = $(OR_ROOT)examples/python
+PYTHON_EX_PATH = $(subst /,$S,$(PYTHON_EX_DIR))
+# Java relevant directory
+CLASS_DIR = $(OR_ROOT)classes
+JAVA_EX_DIR  = $(OR_ROOT)examples/java
+JAVA_EX_PATH = $(subst /,$S,$(JAVA_EX_DIR))
+JAVA_TEST_DIR  = $(OR_ROOT)examples/tests
+JAVA_TEST_PATH = $(subst /,$S,$(JAVA_TEST_DIR))
+# .Net relevant directory
+PACKAGE_DIR = $(OR_ROOT)packages
+DOTNET_EX_DIR  = $(OR_ROOT)examples/dotnet
+DOTNET_EX_PATH = $(subst /,$S,$(DOTNET_EX_DIR))
 
-O=obj
-E=.exe
-L=lib
-J=.jar
-D=.dll
-PDB=.pdb
-EXP=.exp
+O = obj
+L = lib
+E = .exe
+J = .jar
+D = .dll
+PDB = .pdb
+EXP = .exp
 ARCHIVE_EXT = .zip
 FZ_EXE = fzn-or-tools$E
 OBJ_OUT = /Fo
@@ -44,8 +53,8 @@ EXE_OUT = /Fe
 LD_OUT = /OUT:
 DYNAMIC_LD = link /DLL /LTCG /debug
 S = \\
-CMDSEP=&
-CPSEP=;
+CMDSEP = &
+CPSEP = ;
 
 COPY = copy
 COPYREC = xcopy
@@ -89,12 +98,6 @@ else
 CCC=cl /EHsc /MD /nologo
 endif
 
-ZLIB_INC = /I$(WINDOWS_ZLIB_DIR)\\include
-GFLAGS_INC = /I$(WINDOWS_GFLAGS_DIR)\\include /DGFLAGS_DLL_DECL= /DGFLAGS_DLL_DECLARE_FLAG= /DGFLAGS_DLL_DEFINE_FLAG=
-GLOG_INC = /I$(WINDOWS_GLOG_DIR)\\include /DGOOGLE_GLOG_DLL_DECL=
-PROTOBUF_INC = /I$(WINDOWS_PROTOBUF_DIR)\\include
-PROTOBUF_PROTOC_INC = -I$(WINDOWS_PROTOBUF_DIR)\\include
-
 PYTHON_VERSION = $(WINDOWS_PYTHON_VERSION)
 PYTHON_INC=/I$(WINDOWS_PATH_TO_PYTHON)\\include
 PYTHON_LNK="$(WINDOWS_PATH_TO_PYTHON)\\libs\\python$(PYTHON_VERSION).lib"
@@ -125,30 +128,28 @@ ifdef WINDOWS_GUROBI_DIR
   endif
 endif
 
-SWIG_INC = $(GLPK_SWIG) $(CLP_SWIG) $(CBC_SWIG) $(SCIP_SWIG) $(CPLEX_SWIG) $(GUROBI_SWIG) -DUSE_GLOP -DUSE_BOP -DMUST_USE_RESULT
+SWIG_INC = \
+ $(ZLIB_SWIG) $(GFLAGS_SWIG) $(GLOG_SWIG) $(PROTOBUF_SWIG) $(CLP_SWIG) $(CBC_SWIG) \
+ -DUSE_GLOP -DUSE_BOP -DMUST_USE_RESULT \
+ $(GLPK_SWIG) $(SCIP_SWIG) $(GUROBI_SWIG) $(CPLEX_SWIG)
+
+SYS_LNK = psapi.lib ws2_32.lib shlwapi.lib
 
 JAVA_INC=/I"$(JAVA_HOME)\\include" /I"$(JAVA_HOME)\\include\\win32"
 JAVAC_BIN="$(shell $(WHICH) "$(JAVA_HOME)\bin\javac")"
 JAVA_BIN="$(shell $(WHICH) "$(JAVA_HOME)\bin\java")"
 JAR_BIN="$(shell $(WHICH) "$(JAVA_HOME)\bin\jar")"
 
-CFLAGS = -nologo $(SYSCFLAGS) $(DEBUG) /I$(INC_DIR) /I$(GEN_DIR) \
- $(GFLAGS_INC) $(GLOG_INC) $(ZLIB_INC) $(MINISAT_INC) $(PROTOBUF_INC) \
- $(CBC_INC) $(CLP_INC) \
- $(GLPK_INC) $(SCIP_INC) $(CPLEX_INC) $(GUROBI_INC) \
- /DUSE_GLOP /DUSE_BOP /D__WIN32__ /DPSAPI_VERSION=1 /DNOMINMAX
-JNIFLAGS=$(CFLAGS) $(JAVA_INC)
-DYNAMIC_GFLAGS_LNK = $(WINDOWS_GFLAGS_DIR)\\lib\\gflags_static.lib
-STATIC_GFLAGS_LNK = $(WINDOWS_GFLAGS_DIR)\\lib\\gflags_static.lib
-ZLIB_LNK = $(WINDOWS_ZLIB_DIR)\\lib\\$(WINDOWS_ZLIB_NAME)
-DYNAMIC_PROTOBUF_LNK = $(WINDOWS_PROTOBUF_DIR)\\lib\\libprotobuf.lib
-STATIC_PROTOBUF_LNK = $(WINDOWS_PROTOBUF_DIR)\\lib\\libprotobuf.lib
-DYNAMIC_GLOG_LNK = $(WINDOWS_PROTOBUF_DIR)\\lib\\glog.lib
-STATIC_GLOG_LNK = $(WINDOWS_PROTOBUF_DIR)\\lib\\glog.lib
-SYS_LNK=psapi.lib ws2_32.lib shlwapi.lib
-DEPENDENCIES_LNK = $(STATIC_CBC_LNK) $(STATIC_CLP_LNK) $(STATIC_GLOG_LNK) $(STATIC_GFLAGS_LNK) $(STATIC_PROTOBUF_LNK)
-LDFLAGS = $(ZLIB_LNK) $(SYS_LNK)
+DEPENDENCIES_INC = /I$(INC_DIR) /I$(EX_DIR) /I$(GEN_DIR) \
+ $(ZLIB_INC) $(GFLAGS_INC) $(GLOG_INC) $(PROTOBUF_INC) \
+ $(COIN_INC) \
+ /DUSE_GLOP /DUSE_BOP \
+ $(GLPK_INC) $(SCIP_INC) $(GUROBI_INC) $(CPLEX_INC)
 
-OR_TOOLS_LDFLAGS = $(ZLIB_LNK) $(SYS_LNK)
-COMMA := ,
-BACK_SLASH := \\
+CFLAGS = -nologo $(SYSCFLAGS) /D__WIN32__ /DPSAPI_VERSION=1 /DNOMINMAX $(DEBUG) $(DEPENDENCIES_INC)
+JNIFLAGS=$(CFLAGS) $(DEPENDENCIES_INC)
+LDFLAGS =
+DEPENDENCIES_LNK = $(SYS_LNK)
+
+OR_TOOLS_LNK =
+OR_TOOLS_LDFLAGS =

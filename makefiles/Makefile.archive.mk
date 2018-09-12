@@ -22,7 +22,7 @@ archive: $(INSTALL_DIR)$(ARCHIVE_EXT)
 fz_archive: $(FZ_INSTALL_DIR)$(ARCHIVE_EXT)
 
 .PHONY: data_archive # Create OR-Tools archive for data examples.
-data_archive: $(INSTALL_DIR)_data$(ARCHIVE_EXT)
+data_archive: $(DATA_INSTALL_DIR)$(ARCHIVE_EXT)
 
 .PHONY: clean_archive # Clean Archive output from previous build.
 clean_archive:
@@ -33,7 +33,7 @@ clean_archive:
 	-$(DELREC) $(TEMP_FZ_TEST_DIR)
 	-$(DEL) $(INSTALL_DIR)$(ARCHIVE_EXT)
 	-$(DEL) $(FZ_INSTALL_DIR)$(ARCHIVE_EXT)
-	-$(DEL) $(INSTALL_DIR)_data$(ARCHIVE_EXT)
+	-$(DEL) $(DATA_INSTALL_DIR)$(ARCHIVE_EXT)
 
 $(TEMP_ARCHIVE_DIR):
 	$(MKDIR_P) $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)
@@ -52,7 +52,7 @@ endif
 #	-$(DELREC) $(TEMP_ARCHIVE_DIR)
 
 .PHONY: archive_cc # Add C++ OR-Tools to archive.
-archive_cc: cc | $(TEMP_ARCHIVE_DIR)
+archive_cc: cc $(CVRPTW_LIBS) $(DIMACS_LIBS) $(FAP_LIBS) | $(TEMP_ARCHIVE_DIR)
 	$(MAKE) install_cc prefix=$(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)
 	$(COPY) $(CVRPTW_PATH) $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$Slib
 	$(COPY) $(DIMACS_PATH) $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$Slib
@@ -76,26 +76,14 @@ endif
 
 .PHONY: archive_dotnet # Add .Net OR-Tools to archive.
 archive_dotnet: dotnet | $(TEMP_ARCHIVE_DIR)
-	$(MKDIR_P) $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$Sbin
-	"$(DOTNET_BIN)" publish \
--f netstandard2.0 \
--c Release \
--o "..$S..$S..$Stemp_archive$S$(INSTALL_DIR)$Sbin" \
-ortools$Sdotnet$S$(ORTOOLS_DLL_NAME)$S$(ORTOOLS_DLL_NAME).csproj
-	"$(DOTNET_BIN)" publish \
--f netstandard2.0 \
--c Release \
--o "..$S..$S..$Stemp_archive$S$(INSTALL_DIR)$Sbin" \
-ortools$Sdotnet$S$(ORTOOLS_FSHARP_DLL_NAME)$S$(ORTOOLS_FSHARP_DLL_NAME).fsproj
-	$(COPY) $(BIN_DIR)$S$(CLR_ORTOOLS_IMPORT_DLL_NAME).$(SWIG_DOTNET_LIB_SUFFIX) $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$Sbin
-	$(COPY) $(BIN_DIR)$S$(CLR_PROTOBUF_DLL_NAME)$D $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$Sbin
-	$(MKDIR_P) $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$Sexamples
-ifeq ($(SYSTEM),win)
-	-$(MKDIR) $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$Sexamples$Sdotnet
-	$(COPYREC) $(DOTNET_EX_PATH) "$(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$Sexamples$Sdotnet" /E
-else
-	$(COPYREC) $(DOTNET_EX_PATH) $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$Sexamples
-endif
+	$(MKDIR_P) $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$Spackages
+	$(COPY) packages$S*.nupkg $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$Spackages
+	$(MKDIR_P) $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$Sexamples$Sdotnet
+	$(COPY) examples$Sdotnet$S*.cs $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$Sexamples$Sdotnet
+	$(COPY) examples$Sdotnet$S*.csproj $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$Sexamples$Sdotnet
+	$(COPY) examples$Sdotnet$S*.fs $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$Sexamples$Sdotnet
+	$(COPY) examples$Sdotnet$S*.fsproj $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$Sexamples$Sdotnet
+	$(COPY) examples$Sdotnet$SREADME.md $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$Sexamples$Sdotnet
 
 $(FZ_INSTALL_DIR)$(ARCHIVE_EXT): fz | $(TEMP_FZ_DIR)
 	-$(DELREC) $(TEMP_FZ_DIR)$S*
@@ -120,38 +108,38 @@ endif
 $(TEMP_FZ_DIR):
 	$(MKDIR_P) $(TEMP_FZ_DIR)$S$(FZ_INSTALL_DIR)
 
-$(INSTALL_DIR)_data$(ARCHIVE_EXT):
+$(DATA_INSTALL_DIR)$(ARCHIVE_EXT):
 	-$(DELREC) $(TEMP_DATA_DIR)
 	$(MKDIR) $(TEMP_DATA_DIR)
-	$(MKDIR) $(TEMP_DATA_DIR)$S$(INSTALL_DIR)
-	$(MKDIR) $(TEMP_DATA_DIR)$S$(INSTALL_DIR)$Sexamples
-	$(MKDIR) $(TEMP_DATA_DIR)$S$(INSTALL_DIR)$Sexamples$Sdata
-	$(MKDIR) $(TEMP_DATA_DIR)$S$(INSTALL_DIR)$Sexamples$Sdata$Set_jobshop
-	$(MKDIR) $(TEMP_DATA_DIR)$S$(INSTALL_DIR)$Sexamples$Sdata$Sflexible_jobshop
-	$(MKDIR) $(TEMP_DATA_DIR)$S$(INSTALL_DIR)$Sexamples$Sdata$Sjobshop
-	$(MKDIR) $(TEMP_DATA_DIR)$S$(INSTALL_DIR)$Sexamples$Sdata$Smultidim_knapsack
-	$(MKDIR) $(TEMP_DATA_DIR)$S$(INSTALL_DIR)$Sexamples$Sdata$Scvrptw
-	$(MKDIR) $(TEMP_DATA_DIR)$S$(INSTALL_DIR)$Sexamples$Sdata$Spdptw
-	$(MKDIR) $(TEMP_DATA_DIR)$S$(INSTALL_DIR)$Sexamples$Sdata$Sfill_a_pix
-	$(MKDIR) $(TEMP_DATA_DIR)$S$(INSTALL_DIR)$Sexamples$Sdata$Sminesweeper
-	$(MKDIR) $(TEMP_DATA_DIR)$S$(INSTALL_DIR)$Sexamples$Sdata$Srogo
-	$(MKDIR) $(TEMP_DATA_DIR)$S$(INSTALL_DIR)$Sexamples$Sdata$Ssurvo_puzzle
-	$(MKDIR) $(TEMP_DATA_DIR)$S$(INSTALL_DIR)$Sexamples$Sdata$Squasigroup_completion
-	$(MKDIR) $(TEMP_DATA_DIR)$S$(INSTALL_DIR)$Sexamples$Sdata$Sdiscrete_tomography
+	$(MKDIR) $(TEMP_DATA_DIR)$S$(DATA_INSTALL_DIR)
+	$(MKDIR) $(TEMP_DATA_DIR)$S$(DATA_INSTALL_DIR)$Sexamples
+	$(MKDIR) $(TEMP_DATA_DIR)$S$(DATA_INSTALL_DIR)$Sexamples$Sdata
+	$(MKDIR) $(TEMP_DATA_DIR)$S$(DATA_INSTALL_DIR)$Sexamples$Sdata$Set_jobshop
+	$(MKDIR) $(TEMP_DATA_DIR)$S$(DATA_INSTALL_DIR)$Sexamples$Sdata$Sflexible_jobshop
+	$(MKDIR) $(TEMP_DATA_DIR)$S$(DATA_INSTALL_DIR)$Sexamples$Sdata$Sjobshop
+	$(MKDIR) $(TEMP_DATA_DIR)$S$(DATA_INSTALL_DIR)$Sexamples$Sdata$Smultidim_knapsack
+	$(MKDIR) $(TEMP_DATA_DIR)$S$(DATA_INSTALL_DIR)$Sexamples$Sdata$Scvrptw
+	$(MKDIR) $(TEMP_DATA_DIR)$S$(DATA_INSTALL_DIR)$Sexamples$Sdata$Spdptw
+	$(MKDIR) $(TEMP_DATA_DIR)$S$(DATA_INSTALL_DIR)$Sexamples$Sdata$Sfill_a_pix
+	$(MKDIR) $(TEMP_DATA_DIR)$S$(DATA_INSTALL_DIR)$Sexamples$Sdata$Sminesweeper
+	$(MKDIR) $(TEMP_DATA_DIR)$S$(DATA_INSTALL_DIR)$Sexamples$Sdata$Srogo
+	$(MKDIR) $(TEMP_DATA_DIR)$S$(DATA_INSTALL_DIR)$Sexamples$Sdata$Ssurvo_puzzle
+	$(MKDIR) $(TEMP_DATA_DIR)$S$(DATA_INSTALL_DIR)$Sexamples$Sdata$Squasigroup_completion
+	$(MKDIR) $(TEMP_DATA_DIR)$S$(DATA_INSTALL_DIR)$Sexamples$Sdata$Sdiscrete_tomography
 #credits
-	$(COPY) LICENSE-2.0.txt $(TEMP_DATA_DIR)$S$(INSTALL_DIR)
+	$(COPY) LICENSE-2.0.txt $(TEMP_DATA_DIR)$S$(DATA_INSTALL_DIR)
 	$(TAR) -c -v \
 --exclude *svn* \
 --exclude *roadef* \
 --exclude *vector_packing* \
 --exclude *nsplib* \
-examples$Sdata | $(TAR) -xvm -C $(TEMP_DATA_DIR)$S$(INSTALL_DIR)
+examples$Sdata | $(TAR) -xvm -C $(TEMP_DATA_DIR)$S$(DATA_INSTALL_DIR)
 ifeq ($(SYSTEM),win)
-	cd $(TEMP_DATA_DIR) && ..$S$(ZIP) -r ..$S$(INSTALL_DIR)_data$(ARCHIVE_EXT) $(INSTALL_DIR)
+	cd $(TEMP_DATA_DIR) && ..$S$(ZIP) -r ..$S$(DATA_INSTALL_DIR)$(ARCHIVE_EXT) $(DATA_INSTALL_DIR)
 else
-	$(TAR) -C $(TEMP_DATA_DIR) --no-same-owner -czvf $(INSTALL_DIR)_data$(ARCHIVE_EXT) $(INSTALL_DIR)
+	$(TAR) -C $(TEMP_DATA_DIR) --no-same-owner -czvf $(DATA_INSTALL_DIR)$(ARCHIVE_EXT) $(DATA_INSTALL_DIR)
 endif
-	-$(DELREC) $(TEMP_DATA_DIR)
+#	-$(DELREC) $(TEMP_DATA_DIR)
 
 ###############
 ##  TESTING  ##
@@ -161,38 +149,44 @@ TEMP_TEST_DIR = temp_test
 test_archive: $(INSTALL_DIR)$(ARCHIVE_EXT)
 	-$(DELREC) $(TEMP_TEST_DIR)
 	$(MKDIR) $(TEMP_TEST_DIR)
-#this is to make sure the archive tests don't use the root libraries
-	$(RENAME) lib lib2
 ifeq ($(SYSTEM),win)
 	$(UNZIP) $< -d $(TEMP_TEST_DIR)
+	cd $(TEMP_TEST_DIR)$S$(INSTALL_DIR) && $(MAKE) all
 else
+#this is to make sure the archive tests don't use the root libraries
+	$(RENAME) lib lib2
 	$(TAR) -xvf $< -C $(TEMP_TEST_DIR)
-endif
 	( cd $(TEMP_TEST_DIR)$S$(INSTALL_DIR) && $(MAKE) all ) && \
 $(RENAME) lib2 lib && echo "archive test succeeded" || \
 ( $(RENAME) lib2 lib && echo "archive test failed" && exit 1)
+endif
 
 TEMP_FZ_TEST_DIR = temp_fz_test
 .PHONY: test_fz_archive
 test_fz_archive: $(FZ_INSTALL_DIR)$(ARCHIVE_EXT)
 	-$(DELREC) $(TEMP_FZ_TEST_DIR)
 	$(MKDIR) $(TEMP_FZ_TEST_DIR)
-#this is to make sure the archive tests don't use the root libraries
-	$(RENAME) lib lib2
 ifeq ($(SYSTEM),win)
 	$(UNZIP) $< -d $(TEMP_FZ_TEST_DIR)
+	cd $(TEMP_FZ_TEST_DIR)$S$(FZ_INSTALL_DIR) && .$Sbin$S$(FZ_EXE) examples$Scircuit_test.fzn
 else
+#this is to make sure the archive tests don't use the root libraries
+	$(RENAME) lib lib2
 	$(TAR) -xvf $< -C $(TEMP_FZ_TEST_DIR)
-endif
 	( cd $(TEMP_FZ_TEST_DIR)$S$(FZ_INSTALL_DIR) && .$Sbin$S$(FZ_EXE) examples$Scircuit_test.fzn ) && \
 $(RENAME) lib2 lib && echo "fz archive test succeeded" || \
 ( $(RENAME) lib2 lib && echo "fz archive test failed" && exit 1)
+endif
 
 .PHONY: detect_archive # Show variables used to build archive OR-Tools.
 detect_archive:
 	@echo Relevant info for the archive build:
+	@echo TEMP_ARCHIVE_DIR = $(TEMP_ARCHIVE_DIR)
 	@echo INSTALL_DIR = $(INSTALL_DIR)
+	@echo TEMP_FZ_DIR = $(TEMP_FZ_DIR)
 	@echo FZ_INSTALL_DIR = $(FZ_INSTALL_DIR)
+	@echo TEMP_DATA_DIR = $(TEMP_DATA_DIR)
+	@echo DATA_INSTALL_DIR = $(DATA_INSTALL_DIR)
 	@echo ARCHIVE_EXT = $(ARCHIVE_EXT)
 ifeq ($(SYSTEM),win)
 	@echo off & echo(

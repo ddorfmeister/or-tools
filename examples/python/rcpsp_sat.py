@@ -11,14 +11,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Full implementation of a RCPSP solver using the CP-SAT solver."""
+
 from __future__ import print_function
 
 import argparse
 from collections import defaultdict
+import time
+
 from ortools.sat.python import cp_model
 from ortools.data import rcpsp_pb2
 from ortools.data import pywraprcpsp
-import time
 
 parser = argparse.ArgumentParser()
 
@@ -34,10 +37,11 @@ class SolutionPrinter(cp_model.CpSolverSolutionCallback):
   """Print intermediate solutions."""
 
   def __init__(self):
+    cp_model.CpSolverSolutionCallback.__init__(self)
     self.__solution_count = 0
     self.__start_time = time.time()
 
-  def NewSolution(self):
+  def OnSolutionCallback(self):
     current_time = time.time()
     objective = self.ObjectiveValue()
     print('Solution %i, time = %f s, objective = %i' %
@@ -46,6 +50,7 @@ class SolutionPrinter(cp_model.CpSolverSolutionCallback):
 
 
 def SolveRcpsp(problem, proto_file):
+  """Solves the given RCPSP problem."""
   # Determine problem type.
   problem_type = ('Resource investment'
                   if problem.is_resource_investment else 'RCPSP')
@@ -65,7 +70,6 @@ def SolveRcpsp(problem, proto_file):
   num_tasks = len(problem.tasks)
   num_resources = len(problem.resources)
 
-  all_tasks = range(num_tasks)
   all_active_tasks = range(1, num_tasks - 1)
   all_resources = range(num_resources)
 
@@ -135,10 +139,8 @@ def SolveRcpsp(problem, proto_file):
       for r in all_recipes:
         recipe = task.recipes[r]
         is_present = model.NewBoolVar('is_present_%i_r%i' % (t, r))
-        start = model.NewOptionalIntVar(0, horizon, is_present,
-                                        'start_%i_r%i' % (t, r))
-        end = model.NewOptionalIntVar(0, horizon, is_present,
-                                      'end_%i_r%i' % (t, r))
+        start = model.NewIntVar(0, horizon, 'start_%i_r%i' % (t, r))
+        end = model.NewIntVar(0, horizon, 'end_%i_r%i' % (t, r))
         interval = model.NewOptionalIntervalVar(
             start, recipe.duration, end, is_present, 'interval_%i_r%i' % (t, r))
 
@@ -256,7 +258,7 @@ def SolveRcpsp(problem, proto_file):
   # Solve model.
   solver = cp_model.CpSolver()
   solution_printer = SolutionPrinter()
-  status = solver.SolveWithSolutionObserver(model, solution_printer)
+  status = solver.SolveWithSolutionCallback(model, solution_printer)
   print('Solve status: %s' % solver.StatusName(status))
   print('Optimal objective value: %i' % solver.ObjectiveValue())
   print('Statistics')
@@ -266,10 +268,9 @@ def SolveRcpsp(problem, proto_file):
 
 
 def main(args):
-  parser = pywraprcpsp.RcpspParser()
-  parser.ParseFile(args.input)
-  problem = parser.Problem()
-  SolveRcpsp(problem, args.output_proto)
+  rcpsp_parser = pywraprcpsp.RcpspParser()
+  rcpsp_parser.ParseFile(args.input)
+  SolveRcpsp(rcpsp_parser.Problem(), args.output_proto)
 
 
 if __name__ == '__main__':

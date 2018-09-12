@@ -78,24 +78,19 @@ int main() {
 ### Java code
 
 ```java
-import com.google.ortools.sat.*;
+import com.google.ortools.sat.CpModel;
+import com.google.ortools.sat.ILiteral;
+import com.google.ortools.sat.IntVar;
 
 public class LiteralSample {
 
-  static {
-    System.loadLibrary("jniortools");
-  }
-
-  static void LiteralSample()
-  {
-    CpModel model = new CpModel();
-    IntVar x = model.newBoolVar("x");
-    ILiteral not_x = x.not();
-    System.out.println(not_x.shortString());
-  }
+  static { System.loadLibrary("jniortools"); }
 
   public static void main(String[] args) throws Exception {
-    LiteralSample();
+    CpModel model = new CpModel();
+    IntVar x = model.newBoolVar("x");
+    ILiteral notX = x.not();
+    System.out.println(notX.getShortString());
   }
 }
 ```
@@ -205,24 +200,19 @@ int main() {
 ### Java code
 
 ```java
-import com.google.ortools.sat.*;
+import com.google.ortools.sat.CpModel;
+import com.google.ortools.sat.ILiteral;
+import com.google.ortools.sat.IntVar;
 
 public class BoolOrSample {
 
-  static {
-    System.loadLibrary("jniortools");
-  }
+  static { System.loadLibrary("jniortools"); }
 
-  static void BoolOrSample()
-  {
+  public static void main(String[] args) throws Exception {
     CpModel model = new CpModel();
     IntVar x = model.newBoolVar("x");
     IntVar y = model.newBoolVar("y");
     model.addBoolOr(new ILiteral[] {x, y.not()});
-  }
-
-  public static void main(String[] args) throws Exception {
-    BoolOrSample();
   }
 }
 ```
@@ -365,36 +355,41 @@ int main() {
 ### Java code
 
 ```java
-import com.google.ortools.sat.*;
+import com.google.ortools.sat.CpModel;
+import com.google.ortools.sat.ILiteral;
+import com.google.ortools.sat.IntVar;
 
+/**
+ * Reification is the action of associating a Boolean variable to a constraint. This boolean
+ * enforces or prohibits the constraint according to the value the Boolean variable is fixed to.
+ *
+ * <p>Half-reification is defined as a simple implication: If the Boolean variable is true, then the
+ * constraint holds, instead of an complete equivalence.
+ *
+ * <p>The SAT solver offers half-reification. To implement full reification, two half-reified
+ * constraints must be used.
+ */
 public class ReifiedSample {
 
-  static {
-    System.loadLibrary("jniortools");
-  }
+  static { System.loadLibrary("jniortools"); }
 
-  static void ReifiedSample()
-  {
+  public static void main(String[] args) throws Exception {
     CpModel model = new CpModel();
 
     IntVar x = model.newBoolVar("x");
     IntVar y = model.newBoolVar("y");
     IntVar b = model.newBoolVar("b");
 
-    //  First version using a half-reified bool and.
+    // Version 1: a half-reified boolean and.
     model.addBoolAnd(new ILiteral[] {x, y.not()}).onlyEnforceIf(b);
 
-    // Second version using implications.
+    // Version 2: implications.
     model.addImplication(b, x);
     model.addImplication(b, y.not());
 
-    // Third version using bool or.
+    // Version 3: boolean or.
     model.addBoolOr(new ILiteral[] {b.not(), x});
     model.addBoolOr(new ILiteral[] {b.not(), y.not()});
-  }
-
-  public static void main(String[] args) throws Exception {
-    ReifiedSample();
   }
 }
 ```

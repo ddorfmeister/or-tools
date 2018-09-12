@@ -2,44 +2,55 @@
 #  ----- configuration is not standard. In that case, please tell us -----
 #  ----- about it. -----
 
+# Unix specific definitions
 LIB_PREFIX = lib
+DEP_BIN_DIR = $(OR_ROOT)dependencies/install/bin
+# C++ relevant directory
+INC_DIR = $(OR_ROOT).
 SRC_DIR = $(OR_ROOT).
-EX_DIR  = $(OR_ROOT)examples
 GEN_DIR = $(OR_ROOT)ortools/gen
 GEN_PATH = $(subst /,$S,$(GEN_DIR))
-JAVA_EX_DIR  = $(OR_ROOT)examples/java
-JAVA_EX_PATH = $(subst /,$S,$(JAVA_EX_DIR))
-DOTNET_EX_DIR  = $(OR_ROOT)examples/dotnet
-DOTNET_EX_PATH = $(subst /,$S,$(DOTNET_EX_DIR))
 OBJ_DIR = $(OR_ROOT)objs
-CLASS_DIR = $(OR_ROOT)classes
 LIB_DIR = $(OR_ROOT)lib
 BIN_DIR = $(OR_ROOT)bin
-INC_DIR = $(OR_ROOT).
-DEP_BIN_DIR = $(OR_ROOT)dependencies/install/bin
+EX_DIR  = $(OR_ROOT)examples
+EX_PATH = $(subst /,$S,$(EX_DIR))
+# Python relevant directory
+PYTHON_EX_DIR  = $(OR_ROOT)examples/python
+PYTHON_EX_PATH = $(subst /,$S,$(PYTHON_EX_DIR))
+# Java relevant directory
+CLASS_DIR = $(OR_ROOT)classes
+JAVA_EX_DIR  = $(OR_ROOT)examples/java
+JAVA_EX_PATH = $(subst /,$S,$(JAVA_EX_DIR))
+JAVA_TEST_DIR  = $(OR_ROOT)examples/tests
+JAVA_TEST_PATH = $(subst /,$S,$(JAVA_TEST_DIR))
+# .Net relevant directory
+PACKAGE_DIR = $(OR_ROOT)packages
+DOTNET_EX_DIR  = $(OR_ROOT)examples/dotnet
+DOTNET_EX_PATH = $(subst /,$S,$(DOTNET_EX_DIR))
 
-O =o
-E =
+O = o
 ifeq ($(PLATFORM),LINUX)
 L = so
 else # MACOS
 L = dylib
 endif
-J =.jar
-D =.dll
-PDB=.pdb
-EXP=.exp
+E =
+J = .jar
+D = .dll
+PDB = .pdb
+EXP = .exp
 ARCHIVE_EXT = .tar.gz
 FZ_EXE = fzn-or-tools$E
 LD_OUT = -o # need the space.
 OBJ_OUT = -o # need the space
 EXE_OUT = -o # need the space
 S = /
-CMDSEP=;
+CMDSEP = ;
 CPSEP = :
 
 COPY = cp
-COPYREC = cp -r
+COPYREC = cp -R
 DEL = rm -f
 DELREC = rm -rf
 GREP = grep
@@ -79,7 +90,7 @@ ifdef UNIX_GLPK_DIR
 endif
 # This is needed to find scip include files.
 ifdef UNIX_SCIP_DIR
-  SCIP_INC = -I$(UNIX_SCIP_DIR)/src -DUSE_SCIP
+  SCIP_INC = -I$(UNIX_SCIP_DIR)/include -DUSE_SCIP
   SCIP_SWIG = $(SCIP_INC)
 endif
 ifdef UNIX_GUROBI_DIR
@@ -171,7 +182,7 @@ ifeq ($(PLATFORM),MACOSX)
     # nothing to do
   endif
   ifdef UNIX_SCIP_DIR
-    # nothing to do 
+    # nothing to do
   endif
   ifdef UNIX_GUROBI_DIR
     GUROBI_LNK = \
@@ -190,7 +201,7 @@ ifeq ($(PLATFORM),MACOSX)
   JNI_LIB_EXT = jnilib
 
   SWIG_PYTHON_LIB_SUFFIX = so# To overcome a bug in Mac OS X loader.
-  SWIG_DOTNET_LIB_SUFFIX = dll# To overcome a bug in Mac OS X loader.
+  SWIG_DOTNET_LIB_SUFFIX = dylib
   LINK_CMD = clang++ -dynamiclib \
  -Wl,-search_paths_first \
  -Wl,-headerpad_max_install_names \

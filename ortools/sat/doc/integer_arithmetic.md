@@ -154,38 +154,37 @@ int main() {
 ### Java code
 
 ```java
-import com.google.ortools.sat.*;
+import com.google.ortools.sat.CpSolverStatus;
+import com.google.ortools.sat.CpModel;
+import com.google.ortools.sat.CpSolver;
+import com.google.ortools.sat.IntVar;
 
+/**
+ * In a field of rabbits and pheasants, there are 20 heads and 56 legs. How many rabbits and
+ * pheasants are there?
+ */
 public class RabbitsAndPheasants {
 
-  static {
-    System.loadLibrary("jniortools");
-  }
+  static { System.loadLibrary("jniortools"); }
 
-  static void RabbitsAndPheasants() {
+  public static void main(String[] args) throws Exception {
     // Creates the model.
     CpModel model = new CpModel();
     // Creates the variables.
     IntVar r = model.newIntVar(0, 100, "r");
     IntVar p = model.newIntVar(0, 100, "p");
     // 20 heads.
-    model.addLinearSum(new IntVar[] {r, p}, 20, 20);
+    model.addLinearSumEqual(new IntVar[] {r, p}, 20);
     // 56 legs.
-    model.addScalProd(new IntVar[] {r, p}, new long[] {4, 2}, 56, 56);
+    model.addScalProdEqual(new IntVar[] {r, p}, new long[] {4, 2}, 56);
 
     // Creates a solver and solves the model.
     CpSolver solver = new CpSolver();
     CpSolverStatus status = solver.solve(model);
 
-    if (status == CpSolverStatus.FEASIBLE)
-    {
-      System.out.println(solver.value(r) + " rabbits, and " +
-                         solver.value(p) + " pheasants");
+    if (status == CpSolverStatus.FEASIBLE) {
+      System.out.println(solver.value(r) + " rabbits, and " + solver.value(p) + " pheasants");
     }
-  }
-
-  public static void main(String[] args) throws Exception {
-    RabbitsAndPheasants();
   }
 }
 ```

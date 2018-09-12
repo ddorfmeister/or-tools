@@ -24,10 +24,11 @@ class VarArrayAndObjectiveSolutionPrinter(cp_model.CpSolverSolutionCallback):
   """Print intermediate solutions."""
 
   def __init__(self, variables):
+    cp_model.CpSolverSolutionCallback.__init__(self)
     self.__variables = variables
     self.__solution_count = 0
 
-  def NewSolution(self):
+  def OnSolutionCallback(self):
     print('Solution %i' % self.__solution_count)
     print('  objective value = %i' % self.ObjectiveValue())
     for v in self.__variables:
@@ -55,7 +56,7 @@ def MinimalCpSatPrintIntermediateSolutions():
   # Creates a solver and solves.
   solver = cp_model.CpSolver()
   solution_printer = VarArrayAndObjectiveSolutionPrinter([x, y, z])
-  status = solver.SolveWithSolutionObserver(model, solution_printer)
+  status = solver.SolveWithSolutionCallback(model, solution_printer)
 
   print('Status = %s' % solver.StatusName(status))
   print('Number of solutions found: %i' % solution_printer.SolutionCount())

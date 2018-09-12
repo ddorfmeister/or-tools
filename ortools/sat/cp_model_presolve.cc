@@ -200,6 +200,32 @@ struct PresolveContext {
     }
   }
 
+  // Because we always replace equivalent literals before preprocessing a
+  // constraint, we should never run into a case where one of the literal is
+  // fixed but the other is not updated. So this can be called without the need
+  // to keep around the constraints that detected this relation.
+  void AddBooleanEqualityRelation(int ref_a, int ref_b) {
+    if (ref_a == ref_b) return;
+    if (ref_a == NegatedRef(ref_b)) {
+      is_unsat = true;
+      return;
+    }
+    bool added = false;
+    if (RefIsPositive(ref_a) == RefIsPositive(ref_b)) {
+      added |=
+          affine_relations.TryAdd(PositiveRef(ref_a), PositiveRef(ref_b), 1, 0);
+      added |= var_equiv_relations.TryAdd(PositiveRef(ref_a),
+                                          PositiveRef(ref_b), 1, 0);
+    } else {
+      added |= affine_relations.TryAdd(PositiveRef(ref_a), PositiveRef(ref_b),
+                                       -1, 1);
+    }
+    if (added) {
+      modified_domains.Set(PositiveRef(ref_a));
+      modified_domains.Set(PositiveRef(ref_b));
+    }
+  }
+
   // This makes sure that the affine relation only uses one of the
   // representative from the var_equiv_relations.
   AffineRelation::Relation GetAffineRelation(int var) {
@@ -555,6 +581,27 @@ bool PresolveIntMin(ConstraintProto* ct, PresolveContext* context) {
 
 bool PresolveIntProd(ConstraintProto* ct, PresolveContext* context) {
   if (HasEnforcementLiteral(*ct)) return false;
+
+  if (ct->int_prod().vars_size() == 2) {
+    int a = ct->int_prod().vars(0);
+    int b = ct->int_prod().vars(1);
+    const int p = ct->int_prod().target();
+
+    if (context->IsFixed(b)) std::swap(a, b);
+    if (context->IsFixed(a)) {
+      ConstraintProto* const lin = context->working_model->add_constraints();
+      lin->mutable_linear()->add_vars(b);
+      lin->mutable_linear()->add_coeffs(context->MinOf(a));
+      lin->mutable_linear()->add_vars(p);
+      lin->mutable_linear()->add_coeffs(-1);
+      lin->mutable_linear()->add_domain(0);
+      lin->mutable_linear()->add_domain(0);
+
+      context->UpdateRuleStats("int_prod: linearize product by constant.");
+      return RemoveConstraint(ct, context);
+    }
+  }
+
   // For now, we only presolve the case where all variable are Booleans.
   const int target_ref = ct->int_prod().target();
   if (!RefIsPositive(target_ref)) return false;
@@ -1268,6 +1315,19 @@ bool PresolveAllDiff(ConstraintProto* ct, PresolveContext* context) {
   return false;
 }
 
+bool PresolveNoOverlap(ConstraintProto* ct, PresolveContext* context) {
+  const NoOverlapConstraintProto& proto = ct->no_overlap();
+  if (proto.intervals_size() == 1) {
+    context->UpdateRuleStats("no_overlap: only one interval");
+    return RemoveConstraint(ct, context);
+  }
+  if (proto.intervals().empty()) {
+    context->UpdateRuleStats("no_overlap: no intervals");
+    return RemoveConstraint(ct, context);
+  }
+  return false;
+}
+
 bool PresolveCumulative(ConstraintProto* ct, PresolveContext* context) {
   if (HasEnforcementLiteral(*ct)) return false;
   const CumulativeConstraintProto& proto = ct->cumulative();
@@ -1338,6 +1398,8 @@ bool PresolveCircuit(ConstraintProto* ct, PresolveContext* context) {
   if (HasEnforcementLiteral(*ct)) return false;
   CircuitConstraintProto& proto = *ct->mutable_circuit();
 
+  // Convert the flat structure to a graph, note that we includes all the arcs
+  // here (even if they are at false).
   std::vector<std::vector<int>> incoming_arcs;
   std::vector<std::vector<int>> outgoing_arcs;
   const int num_arcs = proto.literals_size();
@@ -1347,7 +1409,6 @@ bool PresolveCircuit(ConstraintProto* ct, PresolveContext* context) {
     const int tail = proto.tails(i);
     const int head = proto.heads(i);
     num_nodes = std::max(num_nodes, std::max(tail, head) + 1);
-    if (context->LiteralIsFalse(ref)) continue;
     if (std::max(tail, head) >= incoming_arcs.size()) {
       incoming_arcs.resize(std::max(tail, head) + 1);
       outgoing_arcs.resize(std::max(tail, head) + 1);
@@ -1357,8 +1418,8 @@ bool PresolveCircuit(ConstraintProto* ct, PresolveContext* context) {
   }
 
   int num_fixed_at_true = 0;
-  for (const auto& node_to_refs : {incoming_arcs, outgoing_arcs}) {
-    for (const std::vector<int>& refs : node_to_refs) {
+  for (const auto* node_to_refs : {&incoming_arcs, &outgoing_arcs}) {
+    for (const std::vector<int>& refs : *node_to_refs) {
       if (refs.size() == 1) {
         if (!context->LiteralIsTrue(refs.front())) {
           ++num_fixed_at_true;
@@ -1391,15 +1452,12 @@ bool PresolveCircuit(ConstraintProto* ct, PresolveContext* context) {
   }
 
   // Remove false arcs.
-  //
-  // TODO(user): all the outgoing/incoming arc of a node should not be all false
-  // at the same time. Report unsat in this case. Note however that this part is
-  // not well defined since if a node have no incoming/outgoing arcs in the
-  // initial proto, it will just be ignored.
   int new_size = 0;
   int num_true = 0;
   int circuit_start = -1;
   std::vector<int> next(num_nodes, -1);
+  std::vector<int> new_in_degree(num_nodes, 0);
+  std::vector<int> new_out_degree(num_nodes, 0);
   for (int i = 0; i < num_arcs; ++i) {
     const int ref = proto.literals(i);
     if (context->LiteralIsFalse(ref)) continue;
@@ -1414,10 +1472,28 @@ bool PresolveCircuit(ConstraintProto* ct, PresolveContext* context) {
       }
       ++num_true;
     }
+    ++new_out_degree[proto.tails(i)];
+    ++new_in_degree[proto.heads(i)];
     proto.set_tails(new_size, proto.tails(i));
     proto.set_heads(new_size, proto.heads(i));
     proto.set_literals(new_size, proto.literals(i));
     ++new_size;
+  }
+
+  // Detect infeasibility due to a node having no more incoming or outgoing arc.
+  // This is a bit tricky because for now the meaning of the constraint says
+  // that all nodes that appear in at least one of the arcs must be in the
+  // circuit or have a self-arc. So if any such node ends up with an incoming or
+  // outgoing degree of zero once we remove false arcs then the constraint is
+  // infeasible!
+  for (int i = 0; i < num_nodes; ++i) {
+    // Skip initially ignored node.
+    if (incoming_arcs[i].empty() && outgoing_arcs[i].empty()) continue;
+
+    if (new_in_degree[i] == 0 || new_out_degree[i] == 0) {
+      context->is_unsat = true;
+      return true;
+    }
   }
 
   // Test if a subcircuit is already present.
@@ -1447,6 +1523,28 @@ bool PresolveCircuit(ConstraintProto* ct, PresolveContext* context) {
     if (num_true == new_size) {
       context->UpdateRuleStats("circuit: empty circuit.");
       return RemoveConstraint(ct, context);
+    }
+  }
+
+  // Look for in/out-degree of two, this will imply that one of the indicator
+  // Boolean is equal to the negation of the other.
+  for (int i = 0; i < num_nodes; ++i) {
+    for (const std::vector<int>* arc_literals :
+         {&incoming_arcs[i], &outgoing_arcs[i]}) {
+      std::vector<int> literals;
+      for (const int ref : *arc_literals) {
+        if (context->LiteralIsFalse(ref)) continue;
+        if (context->LiteralIsTrue(ref)) {
+          literals.clear();
+          break;
+        }
+        literals.push_back(ref);
+      }
+      if (literals.size() == 2 && literals[0] != NegatedRef(literals[1])) {
+        context->UpdateRuleStats("circuit: degree 2");
+        context->AddBooleanEqualityRelation(literals[0],
+                                            NegatedRef(literals[1]));
+      }
     }
   }
 
@@ -1776,6 +1874,9 @@ void PresolveCpModel(bool log_info, CpModelProto* presolved_model,
         case ConstraintProto::ConstraintCase::kAllDiff:
           changed |= PresolveAllDiff(ct, &context);
           break;
+        case ConstraintProto::ConstraintCase::kNoOverlap:
+          changed |= PresolveNoOverlap(ct, &context);
+          break;
         case ConstraintProto::ConstraintCase::kCumulative:
           changed |= PresolveCumulative(ct, &context);
           break;
@@ -1974,7 +2075,7 @@ void PresolveCpModel(bool log_info, CpModelProto* presolved_model,
           const int var = PositiveRef(ref);
           if (var == objective_var) continue;
 
-          int coeff = -ct.linear().coeffs(i) * factor;
+          int64 coeff = -ct.linear().coeffs(i) * factor;
           if (!RefIsPositive(ref)) coeff = -coeff;
           if (!gtl::ContainsKey(objective_map, var)) {
             context.var_to_constraints[var].insert(-1);

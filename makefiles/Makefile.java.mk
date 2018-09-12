@@ -10,63 +10,9 @@ else
 	@echo
 endif
 
-JAVA_OR_TOOLS_LIBS= $(LIB_DIR)/com.google.ortools$J $(LIB_DIR)/$(LIB_PREFIX)jniortools.$(JNI_LIB_EXT)
+JAVA_OR_TOOLS_LIBS= $(LIB_DIR)/com.google.ortools$J
+JAVA_OR_TOOLS_NATIVE_LIBS := $(LIB_DIR)/$(LIB_PREFIX)jniortools.$(JNI_LIB_EXT)
 JAVAFLAGS = -Djava.library.path=$(LIB_DIR)
-
-JAR = \
-$(LIB_DIR)/AllDifferentExcept0$J \
-$(LIB_DIR)/AllInterval$J \
-$(LIB_DIR)/CapacitatedVehicleRoutingProblemWithTimeWindows$J \
-$(LIB_DIR)/Circuit$J \
-$(LIB_DIR)/CoinsGrid$J \
-$(LIB_DIR)/CoinsGridMIP$J \
-$(LIB_DIR)/ColoringMIP$J \
-$(LIB_DIR)/CoveringOpl$J \
-$(LIB_DIR)/Crossword$J \
-$(LIB_DIR)/DeBruijn$J \
-$(LIB_DIR)/Diet$J \
-$(LIB_DIR)/DietMIP$J \
-$(LIB_DIR)/DivisibleBy9Through1$J \
-$(LIB_DIR)/FlowExample$J \
-$(LIB_DIR)/GolombRuler$J \
-$(LIB_DIR)/IntegerProgramming$J \
-$(LIB_DIR)/Issue173$J \
-$(LIB_DIR)/Knapsack$J \
-$(LIB_DIR)/KnapsackMIP$J \
-$(LIB_DIR)/LeastDiff$J \
-$(LIB_DIR)/LinearAssignmentAPI$J \
-$(LIB_DIR)/LinearProgramming$J \
-$(LIB_DIR)/LsApi$J \
-$(LIB_DIR)/MagicSquare$J \
-$(LIB_DIR)/Map2$J \
-$(LIB_DIR)/Map$J \
-$(LIB_DIR)/Minesweeper$J \
-$(LIB_DIR)/MultiThreadTest$J \
-$(LIB_DIR)/NQueens2$J \
-$(LIB_DIR)/NQueens$J \
-$(LIB_DIR)/Partition$J \
-$(LIB_DIR)/QuasigroupCompletion$J \
-$(LIB_DIR)/RabbitsPheasants$J \
-$(LIB_DIR)/SendMoreMoney2$J \
-$(LIB_DIR)/SendMoreMoney$J \
-$(LIB_DIR)/SendMostMoney$J \
-$(LIB_DIR)/Seseman$J \
-$(LIB_DIR)/SetCovering2$J \
-$(LIB_DIR)/SetCovering3$J \
-$(LIB_DIR)/SetCovering4$J \
-$(LIB_DIR)/SetCoveringDeployment$J \
-$(LIB_DIR)/SetCovering$J \
-$(LIB_DIR)/SimpleRoutingTest$J \
-$(LIB_DIR)/StableMarriage$J \
-$(LIB_DIR)/StiglerMIP$J \
-$(LIB_DIR)/Strimko2$J \
-$(LIB_DIR)/Sudoku$J \
-$(LIB_DIR)/SurvoPuzzle$J \
-$(LIB_DIR)/ToNum$J \
-$(LIB_DIR)/Tsp$J \
-$(LIB_DIR)/WhoKilledAgatha$J \
-$(LIB_DIR)/Xkcd$J \
-$(LIB_DIR)/YoungTableaux$J
 
 HAS_JAVA = true
 ifndef JAVAC_BIN
@@ -91,8 +37,10 @@ java:
 	$(warning Cannot find 'java' command which is needed for build. Please make sure it is installed and in system path. Check Makefile.local for more information.)
 test_java: java
 else
-java: ortoolslibs $(JAVA_OR_TOOLS_LIBS) $(JAR)
-test_java: test_java_examples
+java: $(JAVA_OR_TOOLS_LIBS)
+test_java: \
+ test_java_samples \
+ test_java_examples
 BUILT_LANGUAGES +=, Java
 endif
 
@@ -126,6 +74,9 @@ $(CLASS_DIR)/com/google: | $(CLASS_DIR)/com
 $(CLASS_DIR)/com/google/ortools: | $(CLASS_DIR)/com/google
 	$(MKDIR) $(CLASS_DIR)$Scom$Sgoogle$Sortools
 
+################
+##  JAVA JNI  ##
+################
 $(GEN_DIR)/ortools/constraint_solver/constraint_solver_java_wrap.cc: \
  $(SRC_DIR)/ortools/constraint_solver/java/constraint_solver.i \
  $(SRC_DIR)/ortools/constraint_solver/java/routing.i \
@@ -136,14 +87,21 @@ $(GEN_DIR)/ortools/constraint_solver/constraint_solver_java_wrap.cc: \
  $(CP_DEPS) \
  $(SRC_DIR)/ortools/constraint_solver/routing.h \
  | $(GEN_DIR)/ortools/constraint_solver $(GEN_DIR)/com/google/ortools/constraintsolver
-	$(SWIG_BINARY) -I$(INC_DIR) -c++ -java -o $(GEN_PATH)$Sortools$Sconstraint_solver$Sconstraint_solver_java_wrap.cc -package com.google.ortools.constraintsolver -module operations_research_constraint_solver -outdir $(GEN_PATH)$Scom$Sgoogle$Sortools$Sconstraintsolver $(SRC_DIR)$Sortools$Sconstraint_solver$Sjava$Srouting.i
+	$(SWIG_BINARY) -I$(INC_DIR) -c++ -java \
+ -o $(GEN_PATH)$Sortools$Sconstraint_solver$Sconstraint_solver_java_wrap.cc \
+ -package com.google.ortools.constraintsolver \
+ -module operations_research_constraint_solver \
+ -outdir $(GEN_PATH)$Scom$Sgoogle$Sortools$Sconstraintsolver \
+ $(SRC_DIR)$Sortools$Sconstraint_solver$Sjava$Srouting.i
 
 $(OBJ_DIR)/swig/constraint_solver_java_wrap.$O: \
  $(GEN_DIR)/ortools/constraint_solver/constraint_solver_java_wrap.cc \
  $(CP_DEPS) \
  $(SRC_DIR)/ortools/constraint_solver/routing.h \
  | $(OBJ_DIR)/swig
-	$(CCC) $(JNIFLAGS) $(JAVA_INC) -c $(GEN_PATH)$Sortools$Sconstraint_solver$Sconstraint_solver_java_wrap.cc $(OBJ_OUT)$(OBJ_DIR)$Sswig$Sconstraint_solver_java_wrap.$O
+	$(CCC) $(JNIFLAGS) $(JAVA_INC) \
+ -c $(GEN_PATH)$Sortools$Sconstraint_solver$Sconstraint_solver_java_wrap.cc \
+ $(OBJ_OUT)$(OBJ_DIR)$Sswig$Sconstraint_solver_java_wrap.$O
 
 $(GEN_DIR)/ortools/algorithms/knapsack_solver_java_wrap.cc: \
  $(SRC_DIR)/ortools/algorithms/java/knapsack_solver.i \
@@ -151,19 +109,39 @@ $(GEN_DIR)/ortools/algorithms/knapsack_solver_java_wrap.cc: \
  $(SRC_DIR)/ortools/util/java/vector.i \
  $(SRC_DIR)/ortools/algorithms/knapsack_solver.h \
  | $(GEN_DIR)/ortools/algorithms $(GEN_DIR)/com/google/ortools/algorithms
-	$(SWIG_BINARY) -I$(INC_DIR) -c++ -java -o $(GEN_PATH)$Sortools$Salgorithms$Sknapsack_solver_java_wrap.cc -package com.google.ortools.algorithms -module operations_research_algorithms -outdir $(GEN_PATH)$Scom$Sgoogle$Sortools$Salgorithms $(SRC_DIR)$Sortools$Salgorithms$Sjava$Sknapsack_solver.i
+	$(SWIG_BINARY) -I$(INC_DIR) -c++ -java \
+ -o $(GEN_PATH)$Sortools$Salgorithms$Sknapsack_solver_java_wrap.cc \
+ -package com.google.ortools.algorithms \
+ -module operations_research_algorithms \
+ -outdir $(GEN_PATH)$Scom$Sgoogle$Sortools$Salgorithms \
+ $(SRC_DIR)$Sortools$Salgorithms$Sjava$Sknapsack_solver.i
 
 $(OBJ_DIR)/swig/knapsack_solver_java_wrap.$O: \
  $(GEN_DIR)/ortools/algorithms/knapsack_solver_java_wrap.cc \
  | $(OBJ_DIR)/swig
-	$(CCC) $(JNIFLAGS) $(JAVA_INC) -c $(GEN_PATH)$Sortools$Salgorithms$Sknapsack_solver_java_wrap.cc $(OBJ_OUT)$(OBJ_DIR)$Sswig$Sknapsack_solver_java_wrap.$O
+	$(CCC) $(JNIFLAGS) $(JAVA_INC) \
+ -c $(GEN_PATH)$Sortools$Salgorithms$Sknapsack_solver_java_wrap.cc \
+ $(OBJ_OUT)$(OBJ_DIR)$Sswig$Sknapsack_solver_java_wrap.$O
 
 $(GEN_DIR)/ortools/graph/graph_java_wrap.cc: \
  $(SRC_DIR)/ortools/graph/java/graph.i \
  $(SRC_DIR)/ortools/base/base.i \
  $(GRAPH_DEPS) \
  | $(GEN_DIR)/ortools/graph $(GEN_DIR)/com/google/ortools/graph
-	$(SWIG_BINARY) -I$(INC_DIR) -c++ -java -o $(GEN_PATH)$Sortools$Sgraph$Sgraph_java_wrap.cc -package com.google.ortools.graph -module operations_research_graph -outdir $(GEN_PATH)$Scom$Sgoogle$Sortools$Sgraph $(SRC_DIR)$Sortools$Sgraph$Sjava$Sgraph.i
+	$(SWIG_BINARY) -I$(INC_DIR) -c++ -java \
+ -o $(GEN_PATH)$Sortools$Sgraph$Sgraph_java_wrap.cc \
+ -package com.google.ortools.graph \
+ -module operations_research_graph \
+ -outdir $(GEN_PATH)$Scom$Sgoogle$Sortools$Sgraph \
+ $(SRC_DIR)$Sortools$Sgraph$Sjava$Sgraph.i
+
+$(OBJ_DIR)/swig/graph_java_wrap.$O: \
+ $(GEN_DIR)/ortools/graph/graph_java_wrap.cc \
+ $(GRAPH_DEPS) \
+ | $(OBJ_DIR)/swig
+	$(CCC) $(JNIFLAGS) $(JAVA_INC) \
+ -c $(GEN_PATH)$Sortools$Sgraph$Sgraph_java_wrap.cc \
+ $(OBJ_OUT)$(OBJ_DIR)$Sswig$Sgraph_java_wrap.$O
 
 $(GEN_DIR)/ortools/linear_solver/linear_solver_java_wrap.cc: \
  $(SRC_DIR)/ortools/linear_solver/java/linear_solver.i \
@@ -171,32 +149,64 @@ $(GEN_DIR)/ortools/linear_solver/linear_solver_java_wrap.cc: \
  $(SRC_DIR)/ortools/util/java/vector.i \
  $(LP_DEPS) \
  | $(GEN_DIR)/ortools/linear_solver $(GEN_DIR)/com/google/ortools/linearsolver
-	$(SWIG_BINARY) $(SWIG_INC) -I$(INC_DIR) -c++ -java -o $(GEN_PATH)$Sortools$Slinear_solver$Slinear_solver_java_wrap.cc -package com.google.ortools.linearsolver -module operations_research_linear_solver -outdir $(GEN_PATH)$Scom$Sgoogle$Sortools$Slinearsolver $(SRC_DIR)$Sortools$Slinear_solver$Sjava$Slinear_solver.i
+	$(SWIG_BINARY) $(SWIG_INC) -I$(INC_DIR) -c++ -java \
+ -o $(GEN_PATH)$Sortools$Slinear_solver$Slinear_solver_java_wrap.cc \
+ -package com.google.ortools.linearsolver \
+ -module operations_research_linear_solver \
+ -outdir $(GEN_PATH)$Scom$Sgoogle$Sortools$Slinearsolver \
+ $(SRC_DIR)$Sortools$Slinear_solver$Sjava$Slinear_solver.i
+
+$(OBJ_DIR)/swig/linear_solver_java_wrap.$O: \
+ $(GEN_DIR)/ortools/linear_solver/linear_solver_java_wrap.cc \
+ $(LP_DEPS) \
+ | $(OBJ_DIR)/swig
+	$(CCC) $(JNIFLAGS) $(JAVA_INC) \
+ -c $(GEN_PATH)$Sortools$Slinear_solver$Slinear_solver_java_wrap.cc \
+ $(OBJ_OUT)$(OBJ_DIR)$Sswig$Slinear_solver_java_wrap.$O
 
 $(GEN_DIR)/ortools/sat/sat_java_wrap.cc: \
  $(SRC_DIR)/ortools/sat/java/sat.i \
  $(SRC_DIR)/ortools/base/base.i \
  $(SAT_DEPS) \
  | $(GEN_DIR)/ortools/sat $(GEN_DIR)/com/google/ortools/sat
-	$(SWIG_BINARY) -I$(INC_DIR) -c++ -java -o $(GEN_PATH)$Sortools$Ssat$Ssat_java_wrap.cc -package com.google.ortools.sat -module operations_research_sat -outdir $(GEN_PATH)$Scom$Sgoogle$Sortools$Ssat $(SRC_DIR)$Sortools$Ssat$Sjava$Ssat.i
-
-$(OBJ_DIR)/swig/linear_solver_java_wrap.$O: \
- $(GEN_DIR)/ortools/linear_solver/linear_solver_java_wrap.cc \
- $(LP_DEPS) \
- | $(OBJ_DIR)/swig
-	$(CCC) $(JNIFLAGS) $(JAVA_INC) -c $(GEN_PATH)$Sortools$Slinear_solver$Slinear_solver_java_wrap.cc $(OBJ_OUT)$(OBJ_DIR)$Sswig$Slinear_solver_java_wrap.$O
-
-$(OBJ_DIR)/swig/graph_java_wrap.$O: \
- $(GEN_DIR)/ortools/graph/graph_java_wrap.cc \
- $(GRAPH_DEPS) \
- | $(OBJ_DIR)/swig
-	$(CCC) $(JNIFLAGS) $(JAVA_INC) -c $(GEN_PATH)$Sortools$Sgraph$Sgraph_java_wrap.cc $(OBJ_OUT)$(OBJ_DIR)$Sswig$Sgraph_java_wrap.$O
+	$(SWIG_BINARY) -I$(INC_DIR) -c++ -java \
+ -o $(GEN_PATH)$Sortools$Ssat$Ssat_java_wrap.cc \
+ -package com.google.ortools.sat \
+ -module operations_research_sat \
+ -outdir $(GEN_PATH)$Scom$Sgoogle$Sortools$Ssat \
+ $(SRC_DIR)$Sortools$Ssat$Sjava$Ssat.i
 
 $(OBJ_DIR)/swig/sat_java_wrap.$O: \
  $(GEN_DIR)/ortools/sat/sat_java_wrap.cc \
  $(SAT_DEPS) \
  | $(OBJ_DIR)/swig
-	$(CCC) $(JNIFLAGS) $(JAVA_INC) -c $(GEN_PATH)$Sortools$Ssat$Ssat_java_wrap.cc $(OBJ_OUT)$(OBJ_DIR)$Sswig$Ssat_java_wrap.$O
+	$(CCC) $(JNIFLAGS) $(JAVA_INC) \
+ -c $(GEN_PATH)$Sortools$Ssat$Ssat_java_wrap.cc \
+ $(OBJ_OUT)$(OBJ_DIR)$Sswig$Ssat_java_wrap.$O
+
+$(JAVA_OR_TOOLS_NATIVE_LIBS): \
+ $(OR_TOOLS_LIBS) \
+ $(OBJ_DIR)/swig/constraint_solver_java_wrap.$O \
+ $(OBJ_DIR)/swig/knapsack_solver_java_wrap.$O \
+ $(OBJ_DIR)/swig/graph_java_wrap.$O \
+ $(OBJ_DIR)/swig/linear_solver_java_wrap.$O \
+ $(OBJ_DIR)/swig/sat_java_wrap.$O
+	$(DYNAMIC_LD) $(LD_OUT)$(LIB_DIR)$S$(LIB_PREFIX)jniortools.$(JNI_LIB_EXT) \
+ $(OBJ_DIR)$Sswig$Sconstraint_solver_java_wrap.$O \
+ $(OBJ_DIR)$Sswig$Sknapsack_solver_java_wrap.$O \
+ $(OBJ_DIR)$Sswig$Sgraph_java_wrap.$O \
+ $(OBJ_DIR)$Sswig$Slinear_solver_java_wrap.$O \
+ $(OBJ_DIR)$Sswig$Ssat_java_wrap.$O \
+ $(OR_TOOLS_LNK) \
+ $(OR_TOOLS_LDFLAGS)
+
+############
+##  JAVA  ##
+############
+$(LIB_DIR)/protobuf.jar: \
+ dependencies/install/lib/protobuf.jar \
+ | $(LIB_DIR)
+	$(COPY) dependencies$Sinstall$Slib$Sprotobuf.jar $(LIB_DIR)
 
 $(GEN_DIR)/com/google/ortools/constraintsolver/SearchLimitProtobuf.java: \
  $(SRC_DIR)/ortools/constraint_solver/search_limit.proto \
@@ -228,16 +238,9 @@ $(GEN_DIR)/com/google/ortools/sat/SatParameters.java: \
  | $(GEN_DIR)/com/google/ortools/sat
 	$(PROTOC) --proto_path=$(SRC_DIR) --java_out=$(GEN_PATH) $(SRC_DIR)$Sortools$Ssat$Ssat_parameters.proto
 
-$(LIB_DIR)/protobuf.jar: dependencies/install/lib/protobuf.jar | $(LIB_DIR)
-	$(COPY) dependencies$Sinstall$Slib$Sprotobuf.jar $(LIB_DIR)
-
-$(LIB_DIR)/com.google.ortools.jar: \
+$(JAVA_OR_TOOLS_LIBS): \
+ $(JAVA_OR_TOOLS_NATIVE_LIBS) \
  $(LIB_DIR)/protobuf.jar \
- $(GEN_DIR)/ortools/constraint_solver/constraint_solver_java_wrap.cc \
- $(GEN_DIR)/ortools/algorithms/knapsack_solver_java_wrap.cc \
- $(GEN_DIR)/ortools/graph/graph_java_wrap.cc \
- $(GEN_DIR)/ortools/linear_solver/linear_solver_java_wrap.cc \
- $(GEN_DIR)/ortools/sat/sat_java_wrap.cc \
  $(GEN_DIR)/com/google/ortools/constraintsolver/SolverParameters.java \
  $(GEN_DIR)/com/google/ortools/constraintsolver/SearchLimitProtobuf.java \
  $(GEN_DIR)/com/google/ortools/constraintsolver/RoutingParameters.java \
@@ -256,64 +259,127 @@ $(LIB_DIR)/com.google.ortools.jar: \
  $(GEN_PATH)$Scom$Sgoogle$Sortools$Slinearsolver$S*.java
 	$(JAR_BIN) cvf $(LIB_DIR)$Scom.google.ortools.jar -C $(CLASS_DIR) com$Sgoogle$Sortools$S
 
-$(LIB_DIR)/$(LIB_PREFIX)jniortools.$(JNI_LIB_EXT): \
- $(OBJ_DIR)/swig/constraint_solver_java_wrap.$O \
- $(OBJ_DIR)/swig/knapsack_solver_java_wrap.$O \
- $(OBJ_DIR)/swig/graph_java_wrap.$O \
- $(OBJ_DIR)/swig/linear_solver_java_wrap.$O \
- $(OBJ_DIR)/swig/sat_java_wrap.$O \
- $(OR_TOOLS_LIBS)
-	$(DYNAMIC_LD) $(LD_OUT)$(LIB_DIR)$S$(LIB_PREFIX)jniortools.$(JNI_LIB_EXT) \
- $(OBJ_DIR)$Sswig$Sconstraint_solver_java_wrap.$O \
- $(OBJ_DIR)$Sswig$Sknapsack_solver_java_wrap.$O \
- $(OBJ_DIR)$Sswig$Sgraph_java_wrap.$O \
- $(OBJ_DIR)$Sswig$Slinear_solver_java_wrap.$O \
- $(OBJ_DIR)$Sswig$Ssat_java_wrap.$O \
- $(OR_TOOLS_LNK) \
- $(OR_TOOLS_LDFLAGS)
+#############################
+##  Java Examples/Samples  ##
+#############################
+.PHONY: test_java_examples # Build and Run all Java Examples (located in examples/java)
+test_java_examples: $(JAVA_OR_TOOLS_LIBS)
+	$(MAKE) rjava_AllDifferentExcept0
+	$(MAKE) rjava_AllInterval
+	$(MAKE) rjava_CapacitatedVehicleRoutingProblemWithTimeWindows
+	$(MAKE) rjava_Circuit
+	$(MAKE) rjava_CoinsGridMIP
+	$(MAKE) rjava_ColoringMIP
+	$(MAKE) rjava_CoveringOpl
+	$(MAKE) rjava_Crossword
+	$(MAKE) rjava_DeBruijn
+	$(MAKE) rjava_Diet
+	$(MAKE) rjava_DietMIP
+	$(MAKE) rjava_DivisibleBy9Through1
+	$(MAKE) rjava_FlowExample
+	$(MAKE) rjava_GolombRuler
+	$(MAKE) rjava_IntegerProgramming
+	$(MAKE) rjava_Knapsack
+	$(MAKE) rjava_KnapsackMIP
+	$(MAKE) rjava_LeastDiff
+	$(MAKE) rjava_LinearAssignmentAPI
+	$(MAKE) rjava_LinearProgramming
+	$(MAKE) rjava_LsApi
+	$(MAKE) rjava_MagicSquare
+	$(MAKE) rjava_Map2
+	$(MAKE) rjava_Map
+	$(MAKE) rjava_Minesweeper
+	$(MAKE) rjava_MultiThreadTest
+	$(MAKE) rjava_NQueens2
+	$(MAKE) rjava_NQueens
+	$(MAKE) rjava_Partition
+	$(MAKE) rjava_QuasigroupCompletion
+	$(MAKE) rjava_RabbitsPheasants
+	$(MAKE) rjava_SendMoreMoney2
+	$(MAKE) rjava_SendMoreMoney
+	$(MAKE) rjava_SendMostMoney
+	$(MAKE) rjava_Seseman
+	$(MAKE) rjava_SetCovering2
+	$(MAKE) rjava_SetCovering3
+	$(MAKE) rjava_SetCovering4
+	$(MAKE) rjava_SetCoveringDeployment
+	$(MAKE) rjava_SetCovering
+	$(MAKE) rjava_SimpleRoutingTest
+	$(MAKE) rjava_StableMarriage
+	$(MAKE) rjava_StiglerMIP
+	$(MAKE) rjava_Strimko2
+	$(MAKE) rjava_Sudoku
+	$(MAKE) rjava_SurvoPuzzle
+	$(MAKE) rjava_ToNum
+	$(MAKE) rjava_Tsp
+	$(MAKE) rjava_Vrp
+	$(MAKE) rjava_WhoKilledAgatha
+	$(MAKE) rjava_Xkcd
+	$(MAKE) rjava_YoungTableaux
 
-#####################
-##  Java Examples  ##
-#####################
-ifeq ($(EX),) # Those rules will be used if EX variable is not set
+.PHONY: test_java_samples # Build and Run all Java Samples (located in ortools/*/samples)
+test_java_samples: $(JAVA_OR_TOOLS_LIBS)
+	$(MAKE) rjava_BinPackingProblem
+	$(MAKE) rjava_BoolOrSample
+	$(MAKE) rjava_ChannelingSample
+	$(MAKE) rjava_CodeSample
+	$(MAKE) rjava_IntervalSample
+	$(MAKE) rjava_LiteralSample
+	$(MAKE) rjava_NoOverlapSample
+	$(MAKE) rjava_OptionalIntervalSample
+	$(MAKE) rjava_RabbitsAndPheasants
+	$(MAKE) rjava_RankingSample
+	$(MAKE) rjava_ReifiedSample
+	$(MAKE) rjava_SimpleSolve
+	$(MAKE) rjava_SolveAllSolutions
+	$(MAKE) rjava_SolveWithIntermediateSolutions
+	$(MAKE) rjava_SolveWithTimeLimit
+	$(MAKE) rjava_StopAfterNSolutions
+
+$(CLASS_DIR)/%: $(JAVA_EX_DIR)/%.java $(JAVA_OR_TOOLS_LIBS) | $(CLASS_DIR)
+	-$(DELREC) $(CLASS_DIR)$S$*
+	-$(MKDIR_P) $(CLASS_DIR)$S$*
+	"$(JAVAC_BIN)" -d $(CLASS_DIR)$S$* \
+ -cp $(LIB_DIR)$Scom.google.ortools.jar$(CPSEP)$(LIB_DIR)$Sprotobuf.jar \
+ $(JAVA_EX_PATH)$S$*.java
+
+$(CLASS_DIR)/%: $(JAVA_TEST_DIR)/%.java $(JAVA_OR_TOOLS_LIBS) | $(CLASS_DIR)
+	-$(DELREC) $(CLASS_DIR)$S$*
+	-$(MKDIR_P) $(CLASS_DIR)$S$*
+	"$(JAVAC_BIN)" -d $(CLASS_DIR)$S$* \
+ -cp $(LIB_DIR)$Scom.google.ortools.jar$(CPSEP)$(LIB_DIR)$Sprotobuf.jar \
+ $(JAVA_TEST_PATH)$S$*.java
+
+$(CLASS_DIR)/%: $(SRC_DIR)/ortools/sat/samples/%.java $(JAVA_OR_TOOLS_LIBS) | $(CLASS_DIR)
+	-$(DELREC) $(CLASS_DIR)$S$*
+	-$(MKDIR_P) $(CLASS_DIR)$S$*
+	"$(JAVAC_BIN)" -d $(CLASS_DIR)$S$* \
+ -cp $(LIB_DIR)$Scom.google.ortools.jar$(CPSEP)$(LIB_DIR)$Sprotobuf.jar \
+ ortools$Ssat$Ssamples$S$*.java
+
+$(LIB_DIR)/%$J: $(CLASS_DIR)/% | $(LIB_DIR)
+	-$(DEL) $(LIB_DIR)$S$*.jar
+	"$(JAR_BIN)" cvf $(LIB_DIR)$S$*.jar -C $(CLASS_DIR)$S$* .
+
+rjava_%: $(LIB_DIR)/%$J
+	"$(JAVA_BIN)" -Xss2048k $(JAVAFLAGS) \
+ -cp $(LIB_DIR)$S$*.jar$(CPSEP)$(LIB_DIR)$Scom.google.ortools.jar$(CPSEP)$(LIB_DIR)$Sprotobuf.jar \
+ $* $(ARGS)
+
 .PHONY: rjava cjava
+ifeq ($(EX),) # Those rules will be used if EX variable is not set
 rjava cjava:
 	@echo No java file was provided, the $@ target must be used like so: \
  make $@ EX=examples/java/example.java
 else # This generic rule will be used if EX variable is set
 EX_NAME = $(basename $(notdir $(EX)))
 
-.PHONY: cjava
 cjava: $(CLASS_DIR)/$(EX_NAME)
 
-.PHONY: rjava
 rjava: $(LIB_DIR)/$(EX_NAME)$J
 	@echo running $<
-	$(MAKE) run_$(EX_NAME)
+	$(MAKE) rjava_$(EX_NAME)
 endif # ifeq ($(EX),)
-
-$(CLASS_DIR)/%: $(JAVA_EX_DIR)/%.java $(JAVA_OR_TOOLS_LIBS) | $(CLASS_DIR)
-	-$(DELREC) $(CLASS_DIR)$S$*
-	-$(MKDIR_P) $(CLASS_DIR)$S$*
-	$(JAVAC_BIN) -d $(CLASS_DIR)$S$* \
- -cp $(LIB_DIR)$Scom.google.ortools.jar$(CPSEP)$(LIB_DIR)$Sprotobuf.jar \
- $(JAVA_EX_PATH)$S$*.java
-
-$(CLASS_DIR)/%: $(SRC_DIR)/ortools/sat/samples/%.java $(JAVA_OR_TOOLS_LIBS) | $(CLASS_DIR)
-	-$(DELREC) $(CLASS_DIR)$S$*
-	-$(MKDIR_P) $(CLASS_DIR)$S$*
-	$(JAVAC_BIN) -d $(CLASS_DIR)$S$* \
- -cp $(LIB_DIR)$Scom.google.ortools.jar$(CPSEP)$(LIB_DIR)$Sprotobuf.jar \
- $(SRC_DIR)$Sortools$Ssat$Ssamples$S$*.java
-
-$(LIB_DIR)/%$J: $(CLASS_DIR)/% | $(LIB_DIR)
-	-$(DEL) $(LIB_DIR)$S$*.jar
-	$(JAR_BIN) cvf $(LIB_DIR)$S$*.jar -C $(CLASS_DIR)$S$* .
-
-run_%: $(LIB_DIR)/%$J
-	$(JAVA_BIN) -Xss2048k $(JAVAFLAGS) \
- -cp $(LIB_DIR)$S$*.jar$(CPSEP)$(LIB_DIR)$Scom.google.ortools.jar$(CPSEP)$(LIB_DIR)$Sprotobuf.jar \
- $* $(ARGS)
 
 ################
 ##  Cleaning  ##

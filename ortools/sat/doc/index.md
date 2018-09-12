@@ -10,6 +10,7 @@ by type:
 -   [channeling constraints](channeling.md)
 -   [scheduling](scheduling.md)
 -   [Using the CP-SAT solver](solver.md)
+-   [Reference manual for the CpModel and CpSolver classes](reference.md)
 
 Code samples are given in C++ and python. Each language have different
 requirements for the code samples.
@@ -87,29 +88,23 @@ int main() {
 
 ## Java code samples
 
-The java code implements the same interface as the Python code, with a
-**CpModel**, and a **CpSolver** class.
-
+The Java code implements the same interface as the Python code, with a
+**CpModel** and a **CpSolver** class.
 
 ```java
-import com.google.ortools.sat.*;
+import com.google.ortools.sat.CpModel;
+import com.google.ortools.sat.IntVar;
 
 public class CodeSample {
 
-  static {
-    System.loadLibrary("jniortools");
-  }
+  static { System.loadLibrary("jniortools"); }
 
-  public static void CodeSample() {
+  public static void main(String[] args) throws Exception {
     // Creates the model.
     CpModel model = new CpModel();
     // Creates the Boolean variable.
     IntVar x = model.newBoolVar("x");
     System.out.println(x);
-  }
-
-  public static void main(String[] args) throws Exception {
-    CodeSample();
   }
 }
 ```
@@ -117,7 +112,7 @@ public class CodeSample {
 ## C\# code samples
 
 The C\# code implements the same interface as the Python code, with a
-**CpModel**, and a **CpSolver** class.
+**CpModel** and a **CpSolver** class.
 
 
 ```cs

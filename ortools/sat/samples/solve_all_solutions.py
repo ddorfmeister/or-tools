@@ -23,10 +23,11 @@ class VarArraySolutionPrinter(cp_model.CpSolverSolutionCallback):
   """Print intermediate solutions."""
 
   def __init__(self, variables):
+    cp_model.CpSolverSolutionCallback.__init__(self)
     self.__variables = variables
     self.__solution_count = 0
 
-  def NewSolution(self):
+  def OnSolutionCallback(self):
     self.__solution_count += 1
     for v in self.__variables:
       print('%s=%i' % (v, self.Value(v)), end=' ')
@@ -36,7 +37,7 @@ class VarArraySolutionPrinter(cp_model.CpSolverSolutionCallback):
     return self.__solution_count
 
 
-def MinimalSatSearchForAllSolutions():
+def SolveAllSolutions():
   """Showcases calling the solver to search for all solutions."""
   # Creates the model.
   model = cp_model.CpModel()
@@ -56,4 +57,4 @@ def MinimalSatSearchForAllSolutions():
   print('Number of solutions found: %i' % solution_printer.SolutionCount())
 
 
-MinimalSatSearchForAllSolutions()
+SolveAllSolutions()
