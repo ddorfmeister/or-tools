@@ -200,13 +200,16 @@ class SCIPInterface : public MPSolverInterface {
 SCIPInterface::SCIPInterface(MPSolver* solver)
     : MPSolverInterface(solver), scip_(nullptr) {
   try {
-    // TODO: library name should be configurable at runtime
     auto library_name =
 #if defined(_MSC_VER)
     "scip.dll";
 #elif defined(__GNUC__)
     "libscip.so";
 #endif
+    if (!solver_->library_name_.empty()) {
+      library_name = solver_->library_name_;
+    }
+    
     lib_ = new DynamicLibrary(library_name);
     lib_->GetFunction(&SCIPaddCoefLinear, NAMEOF(SCIPaddCoefLinear));
     lib_->GetFunction(&SCIPaddCons, NAMEOF(SCIPaddCons));

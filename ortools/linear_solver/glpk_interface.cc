@@ -69,13 +69,16 @@ void GLPKGatherInformationCallback(glp_tree* tree, void* info) {
   GLPKInformation* glpk_info = reinterpret_cast<GLPKInformation*>(info);
 
   try {
-    // TODO: library name should be configurable at runtime
     auto library_name =
 #if defined(_MSC_VER)
     "glpk_4_65.dll";
 #elif defined(__GNUC__)
     "libglpk.so";
 #endif
+    if (!solver_->library_name_.empty()) {
+      library_name = solver_->library_name_;
+    }
+
     DynamicLibrary lib(library_name);
     auto glp_ios_best_node =
         lib.GetFunction<int(glp_tree*)>(NAMEOF(glp_ios_best_node));

@@ -291,13 +291,16 @@ CplexInterface::CplexInterface(MPSolver *const solver, bool mip)
       mCstat(),
       mRstat() {
   try {
-    // TODO: library name should be configurable at runtime
     auto library_name =
 #if defined(_MSC_VER)
     "cplex1280.dll";
 #elif defined(__GNUC__)
     "libcplex1280.so";
 #endif
+    if (!solver_->library_name_.empty()) {
+      library_name = solver_->library_name_;
+    }
+
     lib_ = new DynamicLibrary(library_name);
     lib_->GetFunction(&CPXXaddcols, "CPXaddcols");
     lib_->GetFunction(&CPXXaddrows, "CPXaddrows");

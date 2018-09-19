@@ -222,13 +222,16 @@ GurobiInterface::GurobiInterface(MPSolver* const solver, bool mip)
       mip_(mip),
       current_solution_index_(0) {
   try {
-    // TODO: library name should be configurable at runtime
     auto library_name =
 #if defined(_MSC_VER)
     "gurobi80.dll";
 #elif defined(__GNUC__)
     "libgurobi80.so";
 #endif
+    if (!solver_->library_name_.empty()) {
+      library_name = solver_->library_name_;
+    }
+
     lib_ = new DynamicLibrary(library_name);
     lib_->GetFunction(&GRBaddrangeconstr, NAMEOF(GRBaddrangeconstr));
     lib_->GetFunction(&GRBaddvars, NAMEOF(GRBaddvars));

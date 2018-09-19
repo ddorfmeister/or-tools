@@ -216,7 +216,8 @@ class MPSolver {
 #endif
   };
 
-  MPSolver(const std::string& name, OptimizationProblemType problem_type);
+  MPSolver(const std::string& name, OptimizationProblemType problem_type,
+           const std::string& library_name = "");
   virtual ~MPSolver();
 
   // Whether the given problem type is supported (this will depend on the
@@ -642,6 +643,9 @@ class MPSolver {
 
   // The type of the linear programming problem.
   const OptimizationProblemType problem_type_;
+
+  // The file name of the dynamic solver library to use.
+  const std::string library_name_;
 
   // The solver interface.
   std::unique_ptr<MPSolverInterface> interface_;

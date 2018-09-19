@@ -403,9 +403,11 @@ MPSolver::OptimizationProblemType DetourProblemType(
 }  // namespace
 
 MPSolver::MPSolver(const std::string& name,
-                   OptimizationProblemType problem_type)
+                   OptimizationProblemType problem_type,
+                   const std::string& library_name)
     : name_(name),
       problem_type_(DetourProblemType(problem_type)),
+      library_name_(library_name),
       time_limit_(0.0) {
   timer_.Restart();
   interface_.reset(BuildSolverInterface(this));
