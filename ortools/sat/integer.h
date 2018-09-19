@@ -598,12 +598,14 @@ class IntegerTrail : public SatPropagator {
   // simply do: return integer_trail_->ReportConflict(...);
   bool ReportConflict(absl::Span<Literal> literal_reason,
                       absl::Span<IntegerLiteral> integer_reason) {
+    DCHECK(ReasonIsValid(literal_reason, integer_reason));
     std::vector<Literal>* conflict = trail_->MutableConflict();
     conflict->assign(literal_reason.begin(), literal_reason.end());
     MergeReasonInto(integer_reason, conflict);
     return false;
   }
   bool ReportConflict(absl::Span<IntegerLiteral> integer_reason) {
+    DCHECK(ReasonIsValid({}, integer_reason));
     std::vector<Literal>* conflict = trail_->MutableConflict();
     conflict->clear();
     MergeReasonInto(integer_reason, conflict);
@@ -631,9 +633,10 @@ class IntegerTrail : public SatPropagator {
   int Index() const { return integer_trail_.size(); }
 
  private:
-  // Tests that all the literals in the given reason are assigned to false.
-  // This is used to DCHECK the given reasons to the Enqueue*() functions.
-  bool AllLiteralsAreFalse(absl::Span<Literal> literals) const;
+  // Used for DHECKs to validate the reason given to the public functions above.
+  // Tests that all Literal are false. Tests that all IntegerLiteral are true.
+  bool ReasonIsValid(absl::Span<Literal> literal_reason,
+                     absl::Span<IntegerLiteral> integer_reason);
 
   // Does the work of MergeReasonInto() when queue_ is already initialized.
   void MergeReasonIntoInternal(std::vector<Literal>* output) const;
@@ -784,7 +787,7 @@ class PropagatorInterface {
   //   updated many times or if different watched literals have the same
   //   watch_index.
   // - At level zero, it will not contain any indices associated with literals
-  //   that where already fixed when the propagator was registered. Only the
+  //   that were already fixed when the propagator was registered. Only the
   //   indices of the literals modified after the registration will be present.
   virtual bool IncrementalPropagate(const std::vector<int>& watch_indices) {
     LOG(FATAL) << "Not implemented.";
@@ -1126,20 +1129,28 @@ inline std::function<void(Model*)> Equality(IntegerVariable v, int64 value) {
 // direction integer-bound => literal, but just literal => integer-bound? This
 // is the same as using different underlying variable for an integer literal and
 // its negation.
-inline std::function<void(Model*)> Implication(Literal l, IntegerLiteral i) {
+inline std::function<void(Model*)> Implication(
+    const std::vector<Literal>& enforcement_literals, IntegerLiteral i) {
   return [=](Model* model) {
     IntegerTrail* integer_trail = model->GetOrCreate<IntegerTrail>();
     if (i.bound <= integer_trail->LowerBound(i.var)) {
       // Always true! nothing to do.
     } else if (i.bound > integer_trail->UpperBound(i.var)) {
       // Always false.
-      model->Add(ClauseConstraint({l.Negated()}));
+      std::vector<Literal> clause;
+      for (const Literal literal : enforcement_literals) {
+        clause.push_back(literal.Negated());
+      }
+      model->Add(ClauseConstraint(clause));
     } else {
       // TODO(user): Double check what happen when we associate a trivially
       // true or false literal.
       IntegerEncoder* encoder = model->GetOrCreate<IntegerEncoder>();
-      const Literal current = encoder->GetOrCreateAssociatedLiteral(i);
-      model->Add(Implication(l, current));
+      std::vector<Literal> clause{encoder->GetOrCreateAssociatedLiteral(i)};
+      for (const Literal literal : enforcement_literals) {
+        clause.push_back(literal.Negated());
+      }
+      model->Add(ClauseConstraint(clause));
     }
   };
 }
@@ -1151,14 +1162,14 @@ inline std::function<void(Model*)> ImpliesInInterval(Literal in_interval,
   return [=](Model* model) {
     if (lb == ub) {
       IntegerEncoder* encoder = model->GetOrCreate<IntegerEncoder>();
-      model->Add(Implication(in_interval,
+      model->Add(Implication({in_interval},
                              encoder->GetOrCreateLiteralAssociatedToEquality(
                                  v, IntegerValue(lb))));
       return;
     }
     model->Add(Implication(
-        in_interval, IntegerLiteral::GreaterOrEqual(v, IntegerValue(lb))));
-    model->Add(Implication(in_interval,
+        {in_interval}, IntegerLiteral::GreaterOrEqual(v, IntegerValue(lb))));
+    model->Add(Implication({in_interval},
                            IntegerLiteral::LowerOrEqual(v, IntegerValue(ub))));
   };
 }

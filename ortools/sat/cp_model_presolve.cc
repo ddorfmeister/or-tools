@@ -201,7 +201,7 @@ struct PresolveContext {
   }
 
   // Because we always replace equivalent literals before preprocessing a
-  // constraint, we should never run into a case where one of the literal is
+  // constraint, we should never run into a case where one of the literals is
   // fixed but the other is not updated. So this can be called without the need
   // to keep around the constraints that detected this relation.
   void AddBooleanEqualityRelation(int ref_a, int ref_b) {
@@ -318,57 +318,51 @@ MUST_USE_RESULT bool RemoveConstraint(ConstraintProto* ct,
   return true;
 }
 
-MUST_USE_RESULT bool MarkConstraintAsFalse(ConstraintProto* ct,
-                                           PresolveContext* context) {
-  if (HasEnforcementLiteral(*ct)) {
-    context->SetLiteralToFalse(ct->enforcement_literal(0));
-  } else {
-    context->is_unsat = true;
-  }
-  return RemoveConstraint(ct, context);
-}
-
 bool PresolveEnforcementLiteral(ConstraintProto* ct, PresolveContext* context) {
   if (!HasEnforcementLiteral(*ct)) return false;
 
-  const int literal = ct->enforcement_literal(0);
-  if (context->LiteralIsTrue(literal)) {
-    context->UpdateRuleStats("true enforcement literal");
-    ct->clear_enforcement_literal();
-    return true;
-  }
+  int new_size = 0;
+  const int old_size = ct->enforcement_literal().size();
+  for (const int literal : ct->enforcement_literal()) {
+    // Remove true literal.
+    if (context->LiteralIsTrue(literal)) {
+      context->UpdateRuleStats("true enforcement literal");
+      continue;
+    }
 
-  // TODO(user): because the cumulative and disjunctive constraint refer to this
-  // interval, we cannot simply remove the constraint even if we know that this
-  // optional interval will not be present. We could fix that by removing this
-  // interval from these constraints, but it is difficult to do that in a
-  // general code, so we will need the presolve for these constraint to take
-  // care of that, and then we would be able to remove this interval if it is
-  // not longer used.
-  if (ct->constraint_case() == ConstraintProto::ConstraintCase::kInterval) {
-    return false;
-  }
+    // TODO(user): because the cumulative and disjunctive constraint refer to
+    // this interval, we cannot simply remove the constraint even if we know
+    // that this optional interval will not be present. We could fix that by
+    // removing this interval from these constraints, but it is difficult to do
+    // that in a general code, so we will need the presolve for these constraint
+    // to take care of that, and then we would be able to remove this interval
+    // if it is not longer used.
+    if (ct->constraint_case() != ConstraintProto::ConstraintCase::kInterval) {
+      if (context->LiteralIsFalse(literal)) {
+        context->UpdateRuleStats("false enforcement literal");
+        return RemoveConstraint(ct, context);
+      } else if (context->IsUnique(literal)) {
+        // We can simply set it to false and ignore the constraint in this case.
+        context->UpdateRuleStats("enforcement literal not used");
+        context->SetLiteralToFalse(literal);
+        return RemoveConstraint(ct, context);
+      }
+    }
 
-  if (context->LiteralIsFalse(literal)) {
-    context->UpdateRuleStats("false enforcement literal");
-    return RemoveConstraint(ct, context);
+    ct->set_enforcement_literal(new_size++, literal);
   }
-  if (context->IsUnique(literal)) {
-    // We can simply set it to false and ignore the constraint in this case.
-    context->UpdateRuleStats("enforcement literal not used");
-    context->SetLiteralToFalse(literal);
-    return RemoveConstraint(ct, context);
-  }
-  return false;
+  ct->mutable_enforcement_literal()->Truncate(new_size);
+  return new_size != old_size;
 }
 
 bool PresolveBoolOr(ConstraintProto* ct, PresolveContext* context) {
-  // Move the enforcement literal inside the clause if any.
+  // Move the enforcement literal inside the clause if any. Note that we do not
+  // mark this as a change since the literal in the constraint are the same.
   if (HasEnforcementLiteral(*ct)) {
-    // Note that we do not mark this as changed though since the literal in the
-    // constraint are the same.
     context->UpdateRuleStats("bool_or: removed enforcement literal");
-    ct->mutable_bool_or()->add_literals(NegatedRef(ct->enforcement_literal(0)));
+    for (const int literal : ct->enforcement_literal()) {
+      ct->mutable_bool_or()->add_literals(NegatedRef(literal));
+    }
     ct->clear_enforcement_literal();
   }
 
@@ -401,7 +395,8 @@ bool PresolveBoolOr(ConstraintProto* ct, PresolveContext* context) {
 
   if (context->tmp_literals.empty()) {
     context->UpdateRuleStats("bool_or: empty");
-    return MarkConstraintAsFalse(ct, context);
+    context->is_unsat = true;
+    return true;
   }
   if (context->tmp_literals.size() == 1) {
     context->UpdateRuleStats("bool_or: only one literal");
@@ -425,6 +420,22 @@ bool PresolveBoolOr(ConstraintProto* ct, PresolveContext* context) {
     }
   }
   return changed;
+}
+
+MUST_USE_RESULT bool MarkConstraintAsFalse(ConstraintProto* ct,
+                                           PresolveContext* context) {
+  if (HasEnforcementLiteral(*ct)) {
+    // Change the constraint to a bool_or.
+    ct->mutable_bool_or()->clear_literals();
+    for (const int lit : ct->enforcement_literal()) {
+      ct->mutable_bool_or()->add_literals(NegatedRef(lit));
+    }
+    ct->clear_enforcement_literal();
+    return PresolveBoolOr(ct, context);
+  } else {
+    context->is_unsat = true;
+    return RemoveConstraint(ct, context);
+  }
 }
 
 bool PresolveBoolAnd(ConstraintProto* ct, PresolveContext* context) {
@@ -455,6 +466,9 @@ bool PresolveBoolAnd(ConstraintProto* ct, PresolveContext* context) {
     context->tmp_literals.push_back(literal);
   }
 
+  // Note that this is not the same behavior as a bool_or:
+  // - bool_or means "at least one", so it is false if empty.
+  // - bool_and means "all literals inside true", so it is true if empty.
   if (context->tmp_literals.empty()) return RemoveConstraint(ct, context);
 
   if (changed) {
@@ -602,7 +616,7 @@ bool PresolveIntProd(ConstraintProto* ct, PresolveContext* context) {
     }
   }
 
-  // For now, we only presolve the case where all variable are Booleans.
+  // For now, we only presolve the case where all variables are Booleans.
   const int target_ref = ct->int_prod().target();
   if (!RefIsPositive(target_ref)) return false;
   for (const int var : ct->int_prod().vars()) {
@@ -1348,26 +1362,42 @@ bool PresolveCumulative(ConstraintProto* ct, PresolveContext* context) {
     if (!ct.enforcement_literal().empty()) has_optional_interval = true;
     const IntervalConstraintProto& interval = ct.interval();
     start_indices[i] = interval.start();
-    const int duration_index = interval.size();
-    const int demand_index = proto.demands(i);
-    if (context->IsFixed(duration_index) &&
-        context->MinOf(duration_index) == 1) {
+    const int duration_ref = interval.size();
+    const int demand_ref = proto.demands(i);
+    if (context->IsFixed(duration_ref) && context->MinOf(duration_ref) == 1) {
       num_duration_one++;
     }
-    if (context->MinOf(duration_index) == 0) {
+    if (context->MinOf(duration_ref) == 0) {
       // The behavior for zero-duration interval is currently not the same in
       // the no-overlap and the cumulative constraint.
       return false;
     }
-    const int64 demand_min = context->MinOf(demand_index);
-    const int64 demand_max = context->MaxOf(demand_index);
+    const int64 demand_min = context->MinOf(demand_ref);
+    const int64 demand_max = context->MaxOf(demand_ref);
     if (demand_min > capacity / 2) {
       num_greater_half_capacity++;
     }
     if (demand_min > capacity) {
-      context->UpdateRuleStats("TODO cumulative: demand_min exceeds capacity");
+      context->UpdateRuleStats("cumulative: demand_min exceeds capacity");
+      if (ct.enforcement_literal().empty()) {
+        context->is_unsat = true;
+        return false;
+      } else {
+        CHECK_EQ(ct.enforcement_literal().size(), 1);
+        context->SetLiteralToFalse(ct.enforcement_literal(0));
+      }
+      return false;
     } else if (demand_max > capacity) {
-      context->UpdateRuleStats("TODO cumulative: demand_max exceeds capacity");
+      if (ct.enforcement_literal().empty()) {
+        context->UpdateRuleStats("cumulative: demand_max exceeds capacity.");
+        context->IntersectDomainWith(demand_ref, {{kint64min, capacity}});
+      } else {
+        // TODO(user): we abort because we cannot convert this to a no_overlap
+        // for instance.
+        context->UpdateRuleStats(
+            "cumulative: demand_max of optional interval exceeds capacity.");
+        return false;
+      }
     }
   }
 
@@ -1790,18 +1820,6 @@ void PresolveCpModel(bool log_info, CpModelProto* presolved_model,
   context.var_to_constraints.resize(context.working_model->variables_size());
   for (int c = 0; c < context.working_model->constraints_size(); ++c) {
     context.UpdateConstraintVariableUsage(c);
-  }
-
-  // Hack for the optional variable so their literal is never considered to
-  // appear in only one constraint. TODO(user): if it appears in none, then we
-  // can remove the variable...
-  for (int i = 0; i < context.working_model->variables_size(); ++i) {
-    if (!context.working_model->variables(i).enforcement_literal().empty()) {
-      context
-          .var_to_constraints[PositiveRef(
-              context.working_model->variables(i).enforcement_literal(0))]
-          .insert(-1);
-    }
   }
 
   // Hack for the objective so that it is never considered to appear in only one
@@ -2310,10 +2328,10 @@ void PresolveCpModel(bool log_info, CpModelProto* presolved_model,
   // Stats and checks.
   if (log_info) {
     LOG(INFO) << "- " << context.affine_relations.NumRelations()
-              << " affine relations where detected. " << num_affine_relations
-              << " where kept.";
+              << " affine relations were detected. " << num_affine_relations
+              << " were kept.";
     LOG(INFO) << "- " << context.var_equiv_relations.NumRelations()
-              << " variable equivalence relations where detected.";
+              << " variable equivalence relations were detected.";
     std::map<std::string, int> sorted_rules(context.stats_by_rule_name.begin(),
                                             context.stats_by_rule_name.end());
     for (const auto& entry : sorted_rules) {
@@ -2341,11 +2359,6 @@ void ApplyVariableMapping(const std::vector<int>& mapping,
   for (ConstraintProto& ct_ref : *proto->mutable_constraints()) {
     ApplyToAllVariableIndices(mapping_function, &ct_ref);
     ApplyToAllLiteralIndices(mapping_function, &ct_ref);
-  }
-  for (IntegerVariableProto& variable_proto : *proto->mutable_variables()) {
-    for (int& ref : *variable_proto.mutable_enforcement_literal()) {
-      mapping_function(&ref);
-    }
   }
 
   // Remap the objective variables.

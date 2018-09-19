@@ -73,7 +73,7 @@ public class CpSolver {
   }
 
   /** Returns the Boolean value of a literal in the last solution found. */
-  public Boolean booleanValue(ILiteral var) {
+  public Boolean booleanValue(Literal var) {
     int index = var.getIndex();
     if (index >= 0) {
       return solveResponse.getSolution(index) != 0;
@@ -110,6 +110,11 @@ public class CpSolver {
   /** Returns the builder of the parameters of the SAT solver for modification. */
   public SatParameters.Builder getParameters() {
     return solveParameters;
+  }
+
+  /** Returns some statistics on the solution found as a string. */
+  public String responseStats() {
+    return SatHelper.solverResponseStats(solveResponse);
   }
 
   private CpSolverResponse solveResponse;

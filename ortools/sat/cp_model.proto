@@ -58,20 +58,6 @@ message IntegerVariableProto {
   //  - for all i < n   :      min_i <= max_i
   //  - for all i < n-1 :  max_i + 1 < min_{i+1}.
   repeated int64 domain = 2;
-
-  // Advanced usage. Note that this is not fully supported yet, contact or-sat@
-  // if this does not work as expected.
-  //
-  // If this is not empty, it must contains only one literal. Any constraint
-  // having a reference to this variable will be ignored if this literal is
-  // true. When this is the case, the value of this variable can thus take any
-  // value in its domain. As of 2017/09/18, only linear constraints with two
-  // terms support this (i.e. precedence constraints).
-  //
-  // This can be a powerful concept because it allows the solver to propagate
-  // the variable regardless of the enforcement literal, and if its domain
-  // become empty, it can propagate this literal to false.
-  repeated int32 enforcement_literal = 3;
 }
 
 // Argument of the constraints of the form OP(literals).
@@ -258,12 +244,20 @@ message ConstraintProto {
   // For debug/logging only. Can be empty.
   string name = 1;
 
-  // This should contain at most one literal. If there is one, then the
-  // constraint must be true when this literal is true, if it is false, then it
-  // doesn't matter. This is also called half-reification. To have an
-  // equivalence between a literal and a constraint (full reification), one must
-  // add both a constraint (controlled by a literal l) and its negation
-  // (controlled by the negation of l).
+  // The constraint will be enforced iff all literals listed here are true. If
+  // this is empty, then the constraint will always be enforced. An enforced
+  // constraint must be satisfied, and an un-enforced one will simply be
+  // ignored.
+  //
+  // This is also called half-reification. To have an equivalence between a
+  // literal and a constraint (full reification), one must add both a constraint
+  // (controlled by a literal l) and its negation (controlled by the negation of
+  // l).
+  //
+  // Important: as of September 2018, only a few constraint support enforcement:
+  // - bool_or, bool_and, linear: fully supported.
+  // - interval: only support a single enforcement literal.
+  // - other: no support (but can be added on a per-demand basis).
   repeated int32 enforcement_literal = 2;
 
   // The actual constraint with its arguments.
@@ -520,7 +514,7 @@ message CpSolverResponse {
   // If the problem has some variables that are not fixed at the end of the
   // search (because of a particular search strategy in the CpModelProto) then
   // this will be used instead of filling the solution above. The two fields
-  // will then contains the lower and upper bound of each variable as they where
+  // will then contains the lower and upper bounds of each variable as they were
   // when the best "solution" was found.
   repeated int64 solution_lower_bounds = 18;
   repeated int64 solution_upper_bounds = 19;
@@ -538,7 +532,7 @@ message CpSolverResponse {
 
   // This will be true iff the solver was asked to find all solutions to a
   // satisfiability problem (or all optimal solutions to an optimization
-  // problem), and he was succesfull in doing so.
+  // problem), and it was successful in doing so.
   bool all_solutions_were_found = 5;
 
   // Some statistics about the solve.

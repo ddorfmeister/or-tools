@@ -23,8 +23,12 @@ GEN_PATH = $(subst /,$S,$(GEN_DIR))
 OBJ_DIR = $(OR_ROOT)objs
 LIB_DIR = $(OR_ROOT)lib
 BIN_DIR = $(OR_ROOT)bin
-EX_DIR  = $(OR_ROOT)examples
-EX_PATH = $(subst /,$S,$(EX_DIR))
+TEST_DIR  = $(OR_ROOT)examples/tests
+TEST_PATH = $(subst /,$S,$(TEST_DIR))
+CC_EX_DIR  = $(OR_ROOT)examples/cpp
+CC_EX_PATH = $(subst /,$S,$(CC_EX_DIR))
+FZ_EX_DIR  = $(OR_ROOT)examples/flatzinc
+FZ_EX_PATH = $(subst /,$S,$(FZ_EX_DIR))
 # Python relevant directory
 PYTHON_EX_DIR  = $(OR_ROOT)examples/python
 PYTHON_EX_PATH = $(subst /,$S,$(PYTHON_EX_DIR))
@@ -32,8 +36,6 @@ PYTHON_EX_PATH = $(subst /,$S,$(PYTHON_EX_DIR))
 CLASS_DIR = $(OR_ROOT)classes
 JAVA_EX_DIR  = $(OR_ROOT)examples/java
 JAVA_EX_PATH = $(subst /,$S,$(JAVA_EX_DIR))
-JAVA_TEST_DIR  = $(OR_ROOT)examples/tests
-JAVA_TEST_PATH = $(subst /,$S,$(JAVA_TEST_DIR))
 # .Net relevant directory
 PACKAGE_DIR = $(OR_ROOT)packages
 DOTNET_EX_DIR  = $(OR_ROOT)examples/dotnet
@@ -136,11 +138,11 @@ SWIG_INC = \
 SYS_LNK = psapi.lib ws2_32.lib shlwapi.lib
 
 JAVA_INC=/I"$(JAVA_HOME)\\include" /I"$(JAVA_HOME)\\include\\win32"
-JAVAC_BIN="$(shell $(WHICH) "$(JAVA_HOME)\bin\javac")"
-JAVA_BIN="$(shell $(WHICH) "$(JAVA_HOME)\bin\java")"
-JAR_BIN="$(shell $(WHICH) "$(JAVA_HOME)\bin\jar")"
+JAVAC_BIN=$(shell $(WHICH) "$(JAVA_HOME)\bin\javac")
+JAVA_BIN=$(shell $(WHICH) "$(JAVA_HOME)\bin\java")
+JAR_BIN=$(shell $(WHICH) "$(JAVA_HOME)\bin\jar")
 
-DEPENDENCIES_INC = /I$(INC_DIR) /I$(EX_DIR) /I$(GEN_DIR) \
+DEPENDENCIES_INC = /I$(INC_DIR) /I$(GEN_DIR) \
  $(ZLIB_INC) $(GFLAGS_INC) $(GLOG_INC) $(PROTOBUF_INC) \
  $(COIN_INC) \
  /DUSE_GLOP /DUSE_BOP \

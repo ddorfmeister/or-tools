@@ -38,8 +38,9 @@ clean_archive:
 $(TEMP_ARCHIVE_DIR):
 	$(MKDIR_P) $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)
 
-$(INSTALL_DIR)$(ARCHIVE_EXT): archive_cc archive_java archive_dotnet
-	$(COPY) tools$SREADME.cc.java.dotnet $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$SREADME
+$(INSTALL_DIR)$(ARCHIVE_EXT): archive_cc archive_java archive_dotnet \
+ tools/README.cc.java.dotnet tools/Makefile.cc.java.dotnet
+	$(COPY) tools$SREADME.cc.java.dotnet $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$SREADME.md
 	$(COPY) tools$SMakefile.cc.java.dotnet $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$SMakefile
 ifeq ($(SYSTEM),win)
 	$(MKDIR_P) $(TEMP_ARCHIVE_DIR)$S$(INSTALL_DIR)$Stools$Swin
@@ -151,12 +152,12 @@ test_archive: $(INSTALL_DIR)$(ARCHIVE_EXT)
 	$(MKDIR) $(TEMP_TEST_DIR)
 ifeq ($(SYSTEM),win)
 	$(UNZIP) $< -d $(TEMP_TEST_DIR)
-	cd $(TEMP_TEST_DIR)$S$(INSTALL_DIR) && $(MAKE) all
+	cd $(TEMP_TEST_DIR)$S$(INSTALL_DIR) && $(MAKE) MAKEFLAGS= all
 else
 #this is to make sure the archive tests don't use the root libraries
 	$(RENAME) lib lib2
 	$(TAR) -xvf $< -C $(TEMP_TEST_DIR)
-	( cd $(TEMP_TEST_DIR)$S$(INSTALL_DIR) && $(MAKE) all ) && \
+	( cd $(TEMP_TEST_DIR)$S$(INSTALL_DIR) && $(MAKE) MAKEFLAGS= all ) && \
 $(RENAME) lib2 lib && echo "archive test succeeded" || \
 ( $(RENAME) lib2 lib && echo "archive test failed" && exit 1)
 endif

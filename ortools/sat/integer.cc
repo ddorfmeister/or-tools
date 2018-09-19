@@ -784,11 +784,37 @@ bool IntegerTrail::Enqueue(IntegerLiteral i_lit,
   return Enqueue(i_lit, literal_reason, integer_reason, integer_trail_.size());
 }
 
+bool IntegerTrail::ReasonIsValid(absl::Span<Literal> literal_reason,
+                                 absl::Span<IntegerLiteral> integer_reason) {
+  const VariablesAssignment& assignment = trail_->Assignment();
+  for (const Literal lit : literal_reason) {
+    if (!assignment.LiteralIsFalse(lit)) return false;
+  }
+  for (const IntegerLiteral i_lit : integer_reason) {
+    if (i_lit.bound > vars_[i_lit.var].current_bound) {
+      if (IsOptional(i_lit.var)) {
+        const Literal is_ignored = IsIgnoredLiteral(i_lit.var);
+        LOG(INFO) << "Reason " << i_lit << " is not true!"
+                  << " optional variable:" << i_lit.var
+                  << " present:" << assignment.LiteralIsFalse(is_ignored)
+                  << " absent:" << assignment.LiteralIsTrue(is_ignored)
+                  << " current_lb:" << vars_[i_lit.var].current_bound;
+      } else {
+        LOG(INFO) << "Reason " << i_lit << " is not true!"
+                  << " non-optional variable:" << i_lit.var
+                  << " current_lb:" << vars_[i_lit.var].current_bound;
+      }
+      return false;
+    }
+  }
+  return true;
+}
+
 bool IntegerTrail::Enqueue(IntegerLiteral i_lit,
                            absl::Span<Literal> literal_reason,
                            absl::Span<IntegerLiteral> integer_reason,
                            int trail_index_with_same_reason) {
-  DCHECK(AllLiteralsAreFalse(literal_reason));
+  DCHECK(ReasonIsValid(literal_reason, integer_reason));
 
   // No point doing work if the variable is already ignored.
   if (IsCurrentlyIgnored(i_lit.var)) return true;
@@ -873,9 +899,9 @@ bool IntegerTrail::Enqueue(IntegerLiteral i_lit,
       return false;
     } else {
       // Note(user): We never make the bound of an optional literal cross. We
-      // used to have a bug where we propagated these bound and their associated
-      // literal, and we where reaching a conflict while propagating the
-      // associated literal instead of setting is_ignored below to false.
+      // used to have a bug where we propagated these bounds and their
+      // associated literals, and we were reaching a conflict while propagating
+      // the associated literal instead of setting is_ignored below to false.
       const Literal is_ignored = Literal(is_ignored_literals_[var]);
       if (integer_search_levels_.empty()) {
         trail_->EnqueueWithUnitReason(is_ignored);
@@ -962,7 +988,7 @@ IntegerTrail::Dependencies(int trail_index) const {
     //
     // To detect if we already did the computation, we store the negated index.
     // Note that we will redo the computation in the corner case where all the
-    // given IntegerLiteral turn out to be assigned at level zero.
+    // given IntegerLiterals turn out to be assigned at level zero.
     //
     // TODO(user): We could check that the same IntegerVariable never appear
     // twice. And if it does the one with the lowest bound could be removed.
@@ -1001,13 +1027,6 @@ std::vector<Literal> IntegerTrail::ReasonFor(IntegerLiteral literal) const {
   std::vector<Literal> reason;
   MergeReasonInto({literal}, &reason);
   return reason;
-}
-
-bool IntegerTrail::AllLiteralsAreFalse(absl::Span<Literal> literals) const {
-  for (const Literal lit : literals) {
-    if (!trail_->Assignment().LiteralIsFalse(lit)) return false;
-  }
-  return true;
 }
 
 // TODO(user): If this is called many time on the same variables, it could be
@@ -1157,7 +1176,8 @@ absl::Span<Literal> IntegerTrail::Reason(const Trail& trail,
 void IntegerTrail::EnqueueLiteral(Literal literal,
                                   absl::Span<Literal> literal_reason,
                                   absl::Span<IntegerLiteral> integer_reason) {
-  DCHECK(AllLiteralsAreFalse(literal_reason));
+  DCHECK(!trail_->Assignment().LiteralIsAssigned(literal));
+  DCHECK(ReasonIsValid(literal_reason, integer_reason));
   if (integer_search_levels_.empty()) {
     // Level zero. We don't keep any reason.
     trail_->EnqueueWithUnitReason(literal);

@@ -33,14 +33,19 @@ IntervalVariable IntervalsRepository::CreateInterval(IntegerVariable start,
   fixed_sizes_.push_back(fixed_size);
   is_present_.push_back(is_present);
 
+  std::vector<Literal> enforcement_literals;
+  if (is_present != kNoLiteralIndex) {
+    enforcement_literals.push_back(Literal(is_present));
+  }
+
   // Link properly all its components.
   precedences_->AddPrecedenceWithAllOptions(StartVar(i), EndVar(i), fixed_size,
-                                            SizeVar(i), is_present);
+                                            SizeVar(i), enforcement_literals);
   precedences_->AddPrecedenceWithAllOptions(EndVar(i), StartVar(i), -fixed_size,
                                             SizeVar(i) == kNoIntegerVariable
                                                 ? kNoIntegerVariable
                                                 : NegationOf(SizeVar(i)),
-                                            is_present);
+                                            enforcement_literals);
   return i;
 }
 
@@ -169,7 +174,7 @@ bool SchedulingConstraintHelper::PushIntervalBound(int t, IntegerLiteral lit) {
       if (lit.bound > integer_trail_->UpperBound(lit.var)) {
         integer_reason_.push_back(
             IntegerLiteral::LowerOrEqual(lit.var, lit.bound - 1));
-        PushTaskAbsence(t);
+        if (!PushTaskAbsence(t)) return false;
       }
       return true;
     }
@@ -195,12 +200,16 @@ bool SchedulingConstraintHelper::DecreaseEndMax(int t,
       t, IntegerLiteral::LowerOrEqual(end_vars_[t], new_max_end));
 }
 
-void SchedulingConstraintHelper::PushTaskAbsence(int t) {
+bool SchedulingConstraintHelper::PushTaskAbsence(int t) {
   DCHECK_NE(reason_for_presence_[t], kNoLiteralIndex);
-  DCHECK(!IsPresent(t));
   DCHECK(!IsAbsent(t));
+  if (IsPresent(t)) {
+    literal_reason_.push_back(Literal(reason_for_presence_[t]).Negated());
+    return ReportConflict();
+  }
   integer_trail_->EnqueueLiteral(Literal(reason_for_presence_[t]).Negated(),
                                  literal_reason_, integer_reason_);
+  return true;
 }
 
 bool SchedulingConstraintHelper::ReportConflict() {

@@ -80,17 +80,6 @@ std::string ValidateIntegerVariable(const CpModelProto& model, int v) {
     return absl::StrCat("var #", v, " has and invalid domain() format: ",
                         ProtobufShortDebugString(proto));
   }
-  if (!proto.enforcement_literal().empty()) {
-    if (proto.enforcement_literal_size() > 1) {
-      return absl::StrCat("var #", v,
-                          " has more than one enforcement_literal: ",
-                          ProtobufShortDebugString(proto));
-    }
-    if (!LiteralReferenceIsValid(model, proto.enforcement_literal(0))) {
-      return absl::StrCat("var #", v, " has an invalid enforcement_literal: ",
-                          ProtobufShortDebugString(proto));
-    }
-  }
   return "";
 }
 
@@ -106,12 +95,7 @@ std::string ValidateArgumentReferencesInConstraint(const CpModelProto& model,
                           ProtobufShortDebugString(ct));
     }
   }
-  if (ct.enforcement_literal_size() > 1) {
-    return absl::StrCat("More than one enforcement_literal in constraint #", c,
-                        " : ", ProtobufShortDebugString(ct));
-  }
-  if (ct.enforcement_literal_size() == 1) {
-    const int lit = ct.enforcement_literal(0);
+  for (const int lit : ct.enforcement_literal()) {
     if (!LiteralReferenceIsValid(model, lit)) {
       return absl::StrCat("Invalid enforcement literal ", lit,
                           " in constraint #", c, " : ",
@@ -240,6 +224,7 @@ std::string ValidateCpModel(const CpModelProto& model) {
 
     // Other non-generic validations.
     // TODO(user): validate all constraints.
+    // TODO(user): Make sure enforcement literals are only set when supported.
     const ConstraintProto& ct = model.constraints(c);
     const ConstraintProto::ConstraintCase type = ct.constraint_case();
     switch (type) {
@@ -310,23 +295,11 @@ class ConstraintChecker {
     return -variable_values_[-var - 1];
   }
 
-  // Note that this does not check the variables like
-  // ConstraintHasNonEnforcedVariables() does.
   bool ConstraintIsEnforced(const ConstraintProto& ct) {
-    return !HasEnforcementLiteral(ct) ||
-           LiteralIsTrue(ct.enforcement_literal(0));
-  }
-
-  bool ConstraintHasNonEnforcedVariables(const CpModelProto& model,
-                                         const ConstraintProto& ct) {
-    IndexReferences references;
-    AddReferencesUsedByConstraint(ct, &references);
-    for (const int ref : references.variables) {
-      const auto& var_proto = model.variables(PositiveRef(ref));
-      if (var_proto.enforcement_literal().empty()) continue;
-      if (LiteralIsFalse(var_proto.enforcement_literal(0))) return true;
+    for (const int lit : ct.enforcement_literal()) {
+      if (LiteralIsFalse(lit)) return false;
     }
-    return false;
+    return true;
   }
 
   bool BoolOrConstraintIsFeasible(const ConstraintProto& ct) {
@@ -731,11 +704,7 @@ bool SolutionIsFeasible(const CpModelProto& model,
   }
 
   // Check that all values fall in the variable domains.
-  int num_optional_vars = 0;
   for (int i = 0; i < model.variables_size(); ++i) {
-    if (!model.variables(i).enforcement_literal().empty()) {
-      ++num_optional_vars;
-    }
     if (!DomainInProtoContains(model.variables(i), variable_values[i])) {
       VLOG(1) << "Variable #" << i << " has value " << variable_values[i]
               << " which do not fall in its domain: "
@@ -751,11 +720,6 @@ bool SolutionIsFeasible(const CpModelProto& model,
     const ConstraintProto& ct = model.constraints(c);
 
     if (!checker.ConstraintIsEnforced(ct)) continue;
-    if (num_optional_vars > 0) {
-      // This function can be slow because it uses reflection. So we only
-      // call it if there is any optional variables.
-      if (checker.ConstraintHasNonEnforcedVariables(model, ct)) continue;
-    }
 
     bool is_feasible = true;
     const ConstraintProto::ConstraintCase type = ct.constraint_case();

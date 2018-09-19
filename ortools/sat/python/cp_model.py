@@ -427,17 +427,31 @@ class Constraint(object):
     """Adds an enforcement literal to the constraint.
 
     Args:
-        boolvar: A boolean literal, that is a boolean variable or its negation.
-          An enforcement literal (boolean variable or its negation) decides
-          whether the constraint is active or not. It acts as an implication, so
-          if the literal is true, that implies the constraint must be enforced.
+        boolvar: A boolean literal or a list of boolean literals.
+
+    This method adds one or more literals (that is a boolean variable or its
+    negation) as enforcement literals. The conjunction of all these literals
+    decides whether the constraint is active or not. It acts as an
+    implication, so if the conjunction is true, it implies that the constraint
+    must be enforced. If it is false, then the constraint is ignored.
+
+    The following constraints support enforcement literals:
+       bool or, bool and, and any linear constraints support any number of
+       enforcement literals.
     """
 
     if isinstance(boolvar, numbers.Integral) and boolvar == 1:
       # Always true. Do nothing.
       pass
+    elif isinstance(boolvar, list):
+      for b in boolvar:
+        if isinstance(b, numbers.Integral) and b == 1:
+          pass
+        else:
+          self.__constraint.enforcement_literal.append(b.Index())
     else:
       self.__constraint.enforcement_literal.append(boolvar.Index())
+    return self
 
   def Index(self):
     return self.__index
@@ -1261,6 +1275,10 @@ class CpModel(object):
     strategy.variable_selection_strategy = var_strategy
     strategy.domain_reduction_strategy = domain_strategy
 
+  def ModelStats(self):
+    """Returns some statistics on the model as a string."""
+    return pywrapsat.SatHelper.ModelStats(self.__model)
+
   def AssertIsBooleanVariable(self, x):
     if isinstance(x, IntVar):
       var = self.__model.variables[x.Index()]
@@ -1460,9 +1478,13 @@ class CpSolver(object):
     return self.__solution.num_branches
 
   def WallTime(self):
-    """Return the wall time in seconds since the creation of the solver."""
+    """Returns the wall time in seconds since the creation of the solver."""
     return self.__solution.wall_time
 
   def UserTime(self):
-    """Return the user time in seconds since the creation of the solver."""
+    """Returns the user time in seconds since the creation of the solver."""
     return self.__solution.user_time
+
+  def ResponseStats(self):
+    """Returns some statistics on the solution found as a string."""
+    return pywrapsat.SatHelper.SolverResponseStats(self.__solution)
