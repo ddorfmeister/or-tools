@@ -8,8 +8,22 @@ from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
 
+import argparse
 import collections
+
 from ortools.sat.python import cp_model
+from google.protobuf import text_format
+
+
+#----------------------------------------------------------------------------
+# Command line arguments.
+PARSER = argparse.ArgumentParser()
+PARSER.add_argument('--problem_instance', default=0, type=int,
+                    help='Problem instance.')
+PARSER.add_argument('--output_proto', default="",
+                    help='Output file to write the cp_model proto to.')
+PARSER.add_argument('--params', default="",
+                    help='Sat solver parameters.')
 
 
 #----------------------------------------------------------------------------
@@ -29,15 +43,65 @@ class SolutionPrinter(cp_model.CpSolverSolutionCallback):
     self.__solution_count += 1
 
 
-def main():
+def main(args):
   """Solves the scheduling with transitions problem."""
 
+  instance = args.problem_instance
+  parameters = args.params
+  output_proto = args.output_proto
+
   #----------------------------------------------------------------------------
-  jobs = [[[(100, 0, 'R6'), (2, 1, 'R6')]], [[(2, 0, 'R3'), (100, 1, 'R3')]],
-          [[(100, 0, 'R1'), (16, 1, 'R1')]], [[(1, 0, 'R1'), (38, 1, 'R1')]],
-          [[(14, 0, 'R1'), (10, 1, 'R1')]], [[(16, 0, 'R3'), (17, 1, 'R3')]],
-          [[(14, 0, 'R3'), (14, 1, 'R3')]], [[(14, 0, 'R3'), (15, 1, 'R3')]],
-          [[(14, 0, 'R3'), (13, 1, 'R3')]], [[(100, 0, 'R1'), (38, 1, 'R1')]]]
+  # Data.
+  small_jobs = [[[(100, 0, 'R6'), (2, 1, 'R6')]],
+                [[(2, 0, 'R3'), (100, 1, 'R3')]],
+                [[(100, 0, 'R1'), (16, 1, 'R1')]],
+                [[(1, 0, 'R1'), (38, 1, 'R1')]],
+                [[(14, 0, 'R1'), (10, 1, 'R1')]],
+                [[(16, 0, 'R3'), (17, 1, 'R3')]],
+                [[(14, 0, 'R3'), (14, 1, 'R3')]],
+                [[(14, 0, 'R3'), (15, 1, 'R3')]],
+                [[(14, 0, 'R3'), (13, 1, 'R3')]],
+                [[(100, 0, 'R1'), (38, 1, 'R1')]]]
+
+  large_jobs = [
+      [[(-1, 0, 'R1'), (10, 1, 'R1')]], [[(9, 0, 'R3'), (22, 1, 'R3')]],
+      [[(-1, 0, 'R3'), (13, 1, 'R3')]], [[(-1, 0, 'R3'), (38, 1, 'R3')]],
+      [[(-1, 0, 'R3'), (38, 1, 'R3')]], [[(-1, 0, 'R3'), (16, 1, 'R3')]],
+      [[(-1, 0, 'R3'), (11, 1, 'R3')]], [[(-1, 0, 'R3'), (13, 1, 'R3')]],
+      [[(13, 0, 'R3'), (-1, 1, 'R3')]], [[(13, 0, 'R3'), (-1, 1, 'R3')]],
+      [[(-1, 0, 'R3'), (15, 1, 'R3')]], [[(12, 0, 'R1'), (-1, 1, 'R1')]],
+      [[(14, 0, 'R1'), (-1, 1, 'R1')]], [[(13, 0, 'R3'), (-1, 1, 'R3')]],
+      [[(-1, 0, 'R3'), (15, 1, 'R3')]], [[(14, 0, 'R1'), (-1, 1, 'R1')]],
+      [[(13, 0, 'R3'), (-1, 1, 'R3')]], [[(14, 0, 'R3'), (-1, 1, 'R3')]],
+      [[(13, 0, 'R1'), (-1, 1, 'R1')]], [[(15, 0, 'R1'), (-1, 1, 'R1')]],
+      [[(-1, 0, 'R2'), (16, 1, 'R2')]], [[(-1, 0, 'R2'), (16, 1, 'R2')]],
+      [[(-1, 0, 'R5'), (27, 1, 'R5')]], [[(-1, 0, 'R5'), (13, 1, 'R5')]],
+      [[(-1, 0, 'R5'), (13, 1, 'R5')]], [[(-1, 0, 'R5'), (13, 1, 'R5')]],
+      [[(13, 0, 'R1'), (-1, 1, 'R1')]], [[(-1, 0, 'R1'), (17, 1, 'R1')]],
+      [[(14, 0, 'R4'), (-1, 1, 'R4')]], [[(13, 0, 'R1'), (-1, 1, 'R1')]],
+      [[(16, 0, 'R4'), (-1, 1, 'R4')]], [[(16, 0, 'R4'), (-1, 1, 'R4')]],
+      [[(16, 0, 'R4'), (-1, 1, 'R4')]], [[(16, 0, 'R4'), (-1, 1, 'R4')]],
+      [[(13, 0, 'R1'), (-1, 1, 'R1')]], [[(13, 0, 'R1'), (-1, 1, 'R1')]],
+      [[(14, 0, 'R4'), (-1, 1, 'R4')]], [[(13, 0, 'R1'), (-1, 1, 'R1')]],
+      [[(12, 0, 'R1'), (-1, 1, 'R1')]], [[(14, 0, 'R4'), (-1, 1, 'R4')]],
+      [[(-1, 0, 'R5'), (14, 1, 'R5')]], [[(14, 0, 'R4'), (-1, 1, 'R4')]],
+      [[(14, 0, 'R4'), (-1, 1, 'R4')]], [[(14, 0, 'R4'), (-1, 1, 'R4')]],
+      [[(14, 0, 'R4'), (-1, 1, 'R4')]], [[(-1, 0, 'R1'), (21, 1, 'R1')]],
+      [[(-1, 0, 'R1'), (21, 1, 'R1')]], [[(-1, 0, 'R1'), (21, 1, 'R1')]],
+      [[(13, 0, 'R6'), (-1, 1, 'R6')]], [[(13, 0, 'R2'), (-1, 1, 'R2')]],
+      [[(-1, 0, 'R6'), (12, 1, 'R6')]], [[(13, 0, 'R1'), (-1, 1, 'R1')]],
+      [[(13, 0, 'R1'), (-1, 1, 'R1')]], [[(-1, 0, 'R6'), (14, 1, 'R6')]],
+      [[(-1, 0, 'R5'), (5, 1, 'R5')]], [[(3, 0, 'R2'), (-1, 1, 'R2')]],
+      [[(-1, 0, 'R1'), (21, 1, 'R1')]], [[(-1, 0, 'R1'), (21, 1, 'R1')]],
+      [[(-1, 0, 'R1'), (21, 1, 'R1')]], [[(-1, 0, 'R5'), (1, 1, 'R5')]],
+      [[(1, 0, 'R2'), (-1, 1, 'R2')]], [[(-1, 0, 'R2'), (19, 1, 'R2')]],
+      [[(13, 0, 'R4'), (-1, 1, 'R4')]], [[(12, 0, 'R4'), (-1, 1, 'R4')]],
+      [[(-1, 0, 'R3'), (2, 1, 'R3')]], [[(11, 0, 'R4'), (-1, 1, 'R4')]],
+      [[(6, 0, 'R6'), (-1, 1, 'R6')]], [[(6, 0, 'R6'), (-1, 1, 'R6')]],
+      [[(1, 0, 'R2'), (-1, 1, 'R2')]], [[(12, 0, 'R4'), (-1, 1, 'R4')]]
+  ]
+
+  jobs = small_jobs if instance == 0 else large_jobs
 
   #----------------------------------------------------------------------------
   # Helper data.
@@ -51,7 +115,7 @@ def main():
   model = cp_model.CpModel()
 
   #----------------------------------------------------------------------------
-  # Sum each lot longest process time for max makespan.
+  # Compute a maximum makespan greedily.
   horizon = 0
   for job in jobs:
     for task in job:
@@ -63,7 +127,7 @@ def main():
   print('Horizon = %i' % horizon)
 
   #----------------------------------------------------------------------------
-  # Scan the jobs and create the relevant variables and intervals.
+  # Global storage of variables.
   intervals_per_machines = collections.defaultdict(list)
   presences_per_machines = collections.defaultdict(list)
   starts_per_machines = collections.defaultdict(list)
@@ -76,6 +140,8 @@ def main():
   job_ranks = {}  # indexed by (job_id, task_id, alt_id).
   job_ends = []  # indexed by job_id
 
+  #----------------------------------------------------------------------------
+  # Scan the jobs and create the relevant variables and intervals.
   for job_id in all_jobs:
     job = jobs[job_id]
     num_tasks = len(job)
@@ -158,7 +224,7 @@ def main():
       model.AddNoOverlap(intervals)
 
   #----------------------------------------------------------------------------
-  # Transition times and transition costs using a circuit constraints.
+  # Transition times and transition costs using a circuit constraint.
   switch_literals = []
   for machine_id in all_machines:
     machine_starts = starts_per_machines[machine_id]
@@ -220,9 +286,18 @@ def main():
                  sum(switch_literals) * transition_weight)
 
   #----------------------------------------------------------------------------
+  # Write problem to file.
+  if output_proto:
+    print('Writing proto to %s' % output_proto)
+    with open(output_proto, 'w') as text_file:
+      text_file.write(str(model))
+
+  #----------------------------------------------------------------------------
   # Solve.
   solver = cp_model.CpSolver()
   solver.parameters.max_time_in_seconds = 60 * 60 * 2
+  if parameters:
+    text_format.Merge(parameters, solver.parameters)
   solution_printer = SolutionPrinter(makespan)
   status = solver.SolveWithSolutionCallback(model, solution_printer)
 
@@ -238,6 +313,9 @@ def main():
         rank = -1
 
         for alt_id in range(len(jobs[job_id][task_id])):
+          if jobs[job_id][task_id][alt_id][0] == -1:
+            continue
+
           if solver.BooleanValue(job_presences[(job_id, task_id, alt_id)]):
             duration = jobs[job_id][task_id][alt_id][0]
             machine = jobs[job_id][task_id][alt_id][1]
@@ -254,4 +332,4 @@ def main():
 
 
 if __name__ == '__main__':
-  main()
+  main(PARSER.parse_args())
