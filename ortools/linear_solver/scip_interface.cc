@@ -200,7 +200,7 @@ class SCIPInterface : public MPSolverInterface {
 SCIPInterface::SCIPInterface(MPSolver* solver)
     : MPSolverInterface(solver), scip_(nullptr) {
   try {
-    auto library_name =
+    std::string library_name =
 #if defined(_MSC_VER)
     "scip.dll";
 #elif defined(__GNUC__)
