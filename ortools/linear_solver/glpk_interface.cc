@@ -40,6 +40,10 @@ extern "C" {
 #include "glpk.h"
 }
 
+namespace {
+std::string library_name;
+}  // namespace
+
 namespace operations_research {
 // Class to store information gathered in the callback
 class GLPKInformation {
@@ -69,16 +73,6 @@ void GLPKGatherInformationCallback(glp_tree* tree, void* info) {
   GLPKInformation* glpk_info = reinterpret_cast<GLPKInformation*>(info);
 
   try {
-    auto library_name =
-#if defined(_MSC_VER)
-    "glpk_4_65.dll";
-#elif defined(__GNUC__)
-    "libglpk.so";
-#endif
-    if (!solver_->library_name_.empty()) {
-      library_name = solver_->library_name_;
-    }
-
     DynamicLibrary lib(library_name);
     auto glp_ios_best_node =
         lib.GetFunction<int(glp_tree*)>(NAMEOF(glp_ios_best_node));
@@ -295,13 +289,16 @@ class GLPKInterface : public MPSolverInterface {
 GLPKInterface::GLPKInterface(MPSolver* const solver, bool mip)
     : MPSolverInterface(solver), lp_(nullptr), mip_(mip) {
     try {
-    // TODO: library name should be configurable at runtime
-    auto library_name =
+    library_name =
 #if defined(_MSC_VER)
     "glpk_4_65.dll";
 #elif defined(__GNUC__)
     "libglpk.so";
 #endif
+    if (!solver_->library_name_.empty()) {
+      library_name = solver_->library_name_;
+    }
+
     lib_ = new DynamicLibrary(library_name);
     lib_->GetFunction(&glp_add_cols, NAMEOF(glp_add_cols));
     lib_->GetFunction(&glp_add_rows, NAMEOF(glp_add_rows));

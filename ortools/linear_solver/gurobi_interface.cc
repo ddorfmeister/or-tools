@@ -168,7 +168,11 @@ class GurobiInterface : public MPSolverInterface {
   MPSolver::BasisStatus TransformGRBConstraintBasisStatus(
       int gurobi_basis_status, int constraint_index) const;
 
-  void CheckedGurobiCall(int err) const;
+  //void CheckedGurobiCall(int err) const;
+  void CheckedGurobiCall(int err) const {
+    CHECK_EQ(0, err) << "Fatal error with code " << err << ", due to "
+                     << GRBgeterrormsg(env_);
+  }
 
   int SolutionCount() const;
 
@@ -222,7 +226,7 @@ GurobiInterface::GurobiInterface(MPSolver* const solver, bool mip)
       mip_(mip),
       current_solution_index_(0) {
   try {
-    auto library_name =
+    std::string library_name =
 #if defined(_MSC_VER)
     "gurobi80.dll";
 #elif defined(__GNUC__)

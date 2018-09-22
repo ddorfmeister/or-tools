@@ -208,9 +208,35 @@ class MPSolutionResponse;
 %unignore operations_research::MPSolverParameters::MPSolverParameters;
 %unignore operations_research::MPSolverParameters::DoubleParam;
 %unignore operations_research::MPSolverParameters::RELATIVE_MIP_GAP;
+%unignore operations_research::MPSolverParameters::PRIMAL_TOLERANCE;
+%unignore operations_research::MPSolverParameters::DUAL_TOLERANCE;
+%unignore operations_research::MPSolverParameters::IntegerParam;
+%unignore operations_research::MPSolverParameters::PRESOLVE;
+%unignore operations_research::MPSolverParameters::LP_ALGORITHM;
+%unignore operations_research::MPSolverParameters::INCREMENTALITY;
+%unignore operations_research::MPSolverParameters::SCALING;
+%unignore operations_research::MPSolverParameters::PresolveValues;
+%unignore operations_research::MPSolverParameters::PRESOLVE_OFF;
+%unignore operations_research::MPSolverParameters::PRESOLVE_ON;
+%unignore operations_research::MPSolverParameters::LpAlgorithmValues;
+%unignore operations_research::MPSolverParameters::DUAL;
+%unignore operations_research::MPSolverParameters::PRIMAL;
+%unignore operations_research::MPSolverParameters::BARRIER;
+%unignore operations_research::MPSolverParameters::IncrementalityValues;
+%unignore operations_research::MPSolverParameters::INCREMENTALITY_OFF;
+%unignore operations_research::MPSolverParameters::INCREMENTALITY_ON;
+%unignore operations_research::MPSolverParameters::ScalingValues;
+%unignore operations_research::MPSolverParameters::SCALING_OFF;
+%unignore operations_research::MPSolverParameters::SCALING_ON;
 %unignore operations_research::MPSolverParameters::GetDoubleParam;
 %unignore operations_research::MPSolverParameters::SetDoubleParam;
+%unignore operations_research::MPSolverParameters::GetIntegerParam;
+%unignore operations_research::MPSolverParameters::SetIntegerParam;
+%unignore operations_research::MPSolverParameters::kDefaultRelativeMipGap;
 %unignore operations_research::MPSolverParameters::kDefaultPrimalTolerance;
+%unignore operations_research::MPSolverParameters::kDefaultDualTolerance;
+%unignore operations_research::MPSolverParameters::kDefaultPresolve;
+%unignore operations_research::MPSolverParameters::kDefaultIncrementality;
 
 %include "ortools/linear_solver/linear_solver.h"
 

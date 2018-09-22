@@ -291,7 +291,7 @@ CplexInterface::CplexInterface(MPSolver *const solver, bool mip)
       mCstat(),
       mRstat() {
   try {
-    auto library_name =
+    std::string library_name =
 #if defined(_MSC_VER)
     "cplex1280.dll";
 #elif defined(__GNUC__)
