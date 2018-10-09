@@ -758,12 +758,12 @@ clean_python:
 	-$(DEL) $(GEN_PATH)$Sortools$Sutil$S_pywrap*
 	-$(DEL) $(LIB_DIR)$S_pywrap*.$(SWIG_PYTHON_LIB_SUFFIX)
 	-$(DEL) $(OBJ_DIR)$Sswig$S*python_wrap.$O
-	-$(DELREC) $(PYPI_ARCHIVE_TEMP_DIR)
+	-$(DELREC) temp_python*
 
 #####################
 ##  Pypi artifact  ##
 #####################
-PYPI_ARCHIVE_TEMP_DIR = temp-python$(PYTHON_VERSION)
+PYPI_ARCHIVE_TEMP_DIR = temp_python$(PYTHON_VERSION)
 
 # PEP 513 auditwheel repair overwrite rpath to $ORIGIN/<ortools_root>/.libs
 # We need to copy all dynamic libs here
@@ -936,8 +936,9 @@ $(PYPI_ARCHIVE_TEMP_DIR)/ortools/ortools/.libs: | $(PYPI_ARCHIVE_TEMP_DIR)/ortoo
 	-$(DELREC) $(PYPI_ARCHIVE_TEMP_DIR)$Sortools$Sortools$S.libs
 	$(MKDIR) $(PYPI_ARCHIVE_TEMP_DIR)$Sortools$Sortools$S.libs
 
+ifneq ($(PYTHON_EXECUTABLE),)
 .PHONY: pypi_archive # Create Python "ortools" wheel package
-pypi_archive: python $(MISSING_PYPI_FILES)
+pypi_archive: $(OR_TOOLS_LIBS) python $(MISSING_PYPI_FILES)
 ifneq ($(SYSTEM),win)
 	cp $(OR_TOOLS_LIBS) $(PYPI_ARCHIVE_TEMP_DIR)/ortools/ortools/.libs
 endif
@@ -958,9 +959,22 @@ ifeq ($(UNIX_CBC_DIR),$(OR_TOOLS_TOP)/dependencies/install)
 	$(COPYREC) dependencies$Sinstall$Slib$SlibCoinUtils* $(PYPI_ARCHIVE_TEMP_DIR)$Sortools$Sortools$S.libs
 endif
 	cd $(PYPI_ARCHIVE_TEMP_DIR)$Sortools && "$(PYTHON_EXECUTABLE)" setup.py bdist_wheel
-ifeq ($(SYSTEM),win)
-	cd $(PYPI_ARCHIVE_TEMP_DIR)$Sortools && "$(PYTHON_EXECUTABLE)" setup.py bdist_wininst
+
+.PHONY: test_pypi_archive # Test Python "ortools" wheel package
+test_pypi_archive: pypi_archive
+	-$(DELREC) $(PYPI_ARCHIVE_TEMP_DIR)$Svenv
+	$(PYTHON_EXECUTABLE) -m virtualenv $(PYPI_ARCHIVE_TEMP_DIR)$Svenv
+	$(COPY) test.py.in $(PYPI_ARCHIVE_TEMP_DIR)$Svenv$Stest.py
+ifneq ($(SYSTEM),win)
+	$(PYPI_ARCHIVE_TEMP_DIR)/venv/bin/python -m pip install $(PYPI_ARCHIVE_TEMP_DIR)/ortools/dist/*.whl
+	$(PYPI_ARCHIVE_TEMP_DIR)/venv/bin/python $(PYPI_ARCHIVE_TEMP_DIR)/venv/test.py
+else
+# wildcar not working on windows:  i.e. `pip install *.whl`:
+# *.whl is not a valid wheel filename.
+	$(PYPI_ARCHIVE_TEMP_DIR)\venv\Scripts\python -m pip install --find-links=$(PYPI_ARCHIVE_TEMP_DIR)\ortools\dist ortools
+	$(PYPI_ARCHIVE_TEMP_DIR)\venv\Scripts\python $(PYPI_ARCHIVE_TEMP_DIR)\venv\test.py
 endif
+endif # ifneq ($(PYTHON_EXECUTABLE),)
 
 .PHONY: install_python # Install Python OR-Tools on the host system
 install_python: pypi_archive
@@ -970,31 +984,42 @@ install_python: pypi_archive
 uninstall_python:
 	"$(PYTHON_EXECUTABLE)" -m pip uninstall ortools
 
-pypi_upload: pypi_archive # Upload Wheel package to Pypi.org
-	@echo Uploading Pypi module for "$(PYTHON_EXECUTABLE)".
-	cd $(PYPI_ARCHIVE_TEMP_DIR)/ortools && twine upload dist/*
+TEMP_PYTHON_DIR=temp_python
 
 .PHONY: python_examples_archive # Build stand-alone Python examples archive file for redistribution.
 python_examples_archive:
-	-$(DELREC) temp
-	$(MKDIR) temp
-	$(MKDIR) temp$Sortools_examples
-	$(MKDIR) temp$Sortools_examples$Sexamples
-	$(MKDIR) temp$Sortools_examples$Sexamples$Spython
-	$(MKDIR) temp$Sortools_examples$Sexamples$Snotebook
-	$(MKDIR) temp$Sortools_examples$Sexamples$Sdata
-	$(COPY) examples$Spython$S*.py temp$Sortools_examples$Sexamples$Spython
-	$(COPY) examples$Snotebook$S*.ipynb temp$Sortools_examples$Sexamples$Snotebook
-	$(COPY) examples$Snotebook$S*.md temp$Sortools_examples$Sexamples$Snotebook
-	$(COPY) tools$SREADME.examples.python temp$Sortools_examples$SREADME.txt
-	$(COPY) LICENSE-2.0.txt temp$Sortools_examples
+	-$(DELREC) $(TEMP_PYTHON_DIR)
+	$(MKDIR) $(TEMP_PYTHON_DIR)
+	$(MKDIR) $(TEMP_PYTHON_DIR)$Sortools_examples
+	$(MKDIR) $(TEMP_PYTHON_DIR)$Sortools_examples$Sexamples
+	$(MKDIR) $(TEMP_PYTHON_DIR)$Sortools_examples$Sexamples$Spython
+	$(MKDIR) $(TEMP_PYTHON_DIR)$Sortools_examples$Sexamples$Snotebook
+	$(MKDIR) $(TEMP_PYTHON_DIR)$Sortools_examples$Sexamples$Sdata
+	$(COPY) $(PYTHON_EX_PATH)$S*.py $(TEMP_PYTHON_DIR)$Sortools_examples$Sexamples$Spython
+	$(COPY) examples$Snotebook$S*.ipynb $(TEMP_PYTHON_DIR)$Sortools_examples$Sexamples$Snotebook
+	$(COPY) examples$Snotebook$S*.md $(TEMP_PYTHON_DIR)$Sortools_examples$Sexamples$Snotebook
+	$(COPY) tools$SREADME.examples.python $(TEMP_PYTHON_DIR)$Sortools_examples$SREADME.txt
+	$(COPY) LICENSE-2.0.txt $(TEMP_PYTHON_DIR)$Sortools_examples
 ifeq ($(SYSTEM),win)
-	cd temp\ortools_examples && ..\..\$(TAR) -C ..\.. -c -v --exclude *svn* --exclude *roadef* --exclude *vector_packing* examples\data | ..\..\$(TAR) xvm
-	cd temp && ..\$(ZIP) -r ..\or-tools_python_examples_v$(OR_TOOLS_VERSION).zip ortools_examples
+	cd $(TEMP_PYTHON_DIR)\ortools_examples \
+ && ..\..\$(TAR) -C ..\.. -c -v \
+ --exclude *svn* --exclude *roadef* --exclude *vector_packing* \
+ examples\data | ..\..\$(TAR) xvm
+	cd $(TEMP_PYTHON_DIR) \
+ && ..\$(ZIP) \
+ -r ..\or-tools_python_examples_v$(OR_TOOLS_VERSION).zip \
+ ortools_examples
 else
-	cd temp/ortools_examples && tar -C ../.. -c -v --exclude *svn* --exclude *roadef* --exclude *vector_packing* examples/data | tar xvm
-	cd temp && tar -c -v -z --no-same-owner -f ../or-tools_python_examples$(PYPI_OS)_v$(OR_TOOLS_VERSION).tar.gz ortools_examples
+	cd $(TEMP_PYTHON_DIR)/ortools_examples \
+ && tar -C ../.. -c -v \
+ --exclude *svn* --exclude *roadef* --exclude *vector_packing* \
+ examples/data | tar xvm
+	cd $(TEMP_PYTHON_DIR) \
+ && tar -c -v -z --no-same-owner \
+ -f ../or-tools_python_examples$(PYPI_OS)_v$(OR_TOOLS_VERSION).tar.gz \
+ ortools_examples
 endif
+	-$(DELREC) $(TEMP_PYTHON_DIR)
 
 #############
 ##  DEBUG  ##

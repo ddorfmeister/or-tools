@@ -28,24 +28,29 @@ HAS_CCC =
 endif
 
 # Main target
-.PHONY: cc # Build C++ OR-Tools and C++ Examples.
-.PHONY: test_cc # Test C++ OR-Tools using various examples.
-.PHONY: test_fz # Test Flatzinc OR-Tools using various examples.
+.PHONY: cc # Build C++ OR-Tools library.
+.PHONY: test_cc # Run all C++ OR-Tools examples.
+.PHONY: test_fz # Run all Flatzinc OR-Tools examples.
 ifndef HAS_CCC
 cc:
 	@echo CCC = $(CCC)
-	$(warning Cannot find '$@' command which is needed for build. Please make sure it is installed and in system path.)
+	$(warning Cannot find '$@' command which is needed for build. Please make sure it is installed and in system PATH.)
 
 test_cc: cc
+check_cc: cc
 test_fz: cc
 else
 cc: $(OR_TOOLS_LIBS)
 
+# Quick check only running same examples than on optimization site
+.PHONY: check_cc
+check_cc: check_cc_examples
+
 test_cc: \
- ccexe \
  test_cc_tests \
  test_cc_samples \
  test_cc_examples
+
 test_fz: \
  test_fz_examples
 BUILT_LANGUAGES += C++
@@ -141,6 +146,25 @@ $(OBJ_DIR)/swig: | $(OBJ_DIR)
 ###############
 ##  CPP LIB  ##
 ###############
+# build from: $> grep "pb\.h:" makefiles/Makefile.gen.mk
+PROTO_DEPS = \
+$(GEN_DIR)/ortools/util/optional_boolean.pb.h \
+$(GEN_DIR)/ortools/data/jobshop_scheduling.pb.h \
+$(GEN_DIR)/ortools/data/rcpsp.pb.h \
+$(GEN_DIR)/ortools/glop/parameters.pb.h \
+$(GEN_DIR)/ortools/graph/flow_problem.pb.h \
+$(GEN_DIR)/ortools/sat/boolean_problem.pb.h \
+$(GEN_DIR)/ortools/sat/cp_model.pb.h \
+$(GEN_DIR)/ortools/sat/sat_parameters.pb.h \
+$(GEN_DIR)/ortools/bop/bop_parameters.pb.h \
+$(GEN_DIR)/ortools/linear_solver/linear_solver.pb.h \
+$(GEN_DIR)/ortools/constraint_solver/assignment.pb.h \
+$(GEN_DIR)/ortools/constraint_solver/demon_profiler.pb.h \
+$(GEN_DIR)/ortools/constraint_solver/model.pb.h \
+$(GEN_DIR)/ortools/constraint_solver/routing_enums.pb.h \
+$(GEN_DIR)/ortools/constraint_solver/routing_parameters.pb.h \
+$(GEN_DIR)/ortools/constraint_solver/search_limit.pb.h \
+$(GEN_DIR)/ortools/constraint_solver/solver_parameters.pb.h
 include $(OR_ROOT)makefiles/Makefile.gen.mk
 
 # OR Tools unique library.
@@ -152,11 +176,11 @@ $(OR_TOOLS_LIBS): \
  $(DATA_LIB_OBJS) \
  $(LP_DATA_LIB_OBJS) \
  $(GLOP_LIB_OBJS) \
+ $(BOP_LIB_OBJS) \
+ $(LP_LIB_OBJS) \
  $(GRAPH_LIB_OBJS) \
  $(ALGORITHMS_LIB_OBJS) \
  $(SAT_LIB_OBJS) \
- $(BOP_LIB_OBJS) \
- $(LP_LIB_OBJS) \
  $(CP_LIB_OBJS) | $(LIB_DIR)
 	$(LINK_CMD) \
  $(LD_OUT)$(LIB_DIR)$S$(LIB_PREFIX)ortools.$L \
@@ -199,7 +223,7 @@ DIMACS_DEPS = \
 	$(GRAPH_DEPS)
 DIMACS_LNK = $(PRE_LIB)dimacs$(POST_LIB) $(OR_TOOLS_LNK)
 ifeq ($(PLATFORM),MACOSX)
-DIMACS_LDFLAGS = -install_name @rpath/$(LIB_PREFIX)cvrptw_lib.$L #
+DIMACS_LDFLAGS = -install_name @rpath/$(LIB_PREFIX)dimacs.$L #
 endif
 dimacslibs: $(DIMACS_LIBS)
 
@@ -213,84 +237,9 @@ FAP_DEPS = \
 	$(LP_DEPS)
 FAP_LNK = $(PRE_LIB)fap$(POST_LIB) $(OR_TOOLS_LNK)
 ifeq ($(PLATFORM),MACOSX)
-FAP_LDFLAGS = -install_name @rpath/$(LIB_PREFIX)cvrptw_lib.$L #
+FAP_LDFLAGS = -install_name @rpath/$(LIB_PREFIX)fap.$L #
 endif
 faplibs: $(FAP_LIBS)
-
-# Binaries
-CC_EXAMPLES = \
-costas_array \
-cryptarithm \
-cvrp_disjoint_tw \
-cvrptw \
-cvrptw_with_breaks \
-cvrptw_with_refueling \
-cvrptw_with_resources \
-cvrptw_with_stop_times_and_resources \
-dimacs_assignment \
-dobble_ls \
-flexible_jobshop \
-flow_api \
-frequency_assignment_problem \
-golomb \
-integer_programming \
-jobshop \
-jobshop_earlytardy \
-jobshop_ls \
-jobshop_sat \
-linear_assignment_api \
-linear_programming \
-linear_solver_protocol_buffers \
-ls_api \
-magic_square \
-model_util \
-mps_driver \
-multidim_knapsack \
-network_routing \
-nqueens \
-pdptw \
-shift_minimization_sat \
-solve \
-sports_scheduling \
-strawberry_fields_with_column_generation \
-tsp \
-weighted_tardiness_sat
-
-CC_TESTS = \
-ac4r_table_test \
-boolean_test \
-bug_fz1 \
-cpp11_test \
-forbidden_intervals_test \
-gcc_test \
-issue173 \
-issue57 \
-min_max_test \
-visitor_test
-
-CC_SAMPLES = \
-binpacking_problem \
-bool_or_sample \
-channeling_sample \
-code_sample \
-interval_sample \
-literal_sample \
-no_overlap_sample \
-optional_interval_sample \
-rabbits_and_pheasants \
-ranking_sample \
-reified_sample \
-simple_solve \
-solve_all_solutions \
-solve_with_intermediate_solutions \
-solve_with_time_limit \
-stop_after_n_solutions \
-
-.PHONY: ccexe
-ccexe: \
- $(addsuffix $E, $(addprefix $(BIN_DIR)/, $(CC_SAMPLES))) \
- $(addsuffix $E, $(addprefix $(BIN_DIR)/, $(CC_TESTS))) \
- $(addsuffix $E, $(addprefix $(BIN_DIR)/, $(CC_EXAMPLES)))
 
 # CVRPTW common library
 CVRPTW_OBJS = $(OBJ_DIR)/cvrptw_lib.$O
@@ -310,7 +259,7 @@ $(CVRPTW_LIBS): $(OR_TOOLS_LIBS) $(CVRPTW_OBJS) | $(LIB_DIR)
  $(OR_TOOLS_LDFLAGS)
 
 # DIMACS challenge problem format library
-DIMACS_OBJS = $(OBJ_DIR)/parse_dimacs_assignment.$O
+DIMACS_OBJS = $(OBJ_DIR)/parse_dimacs_assignment.$O $(OBJ_DIR)/print_dimacs_assignment.$O
 
 $(DIMACS_LIBS): $(OR_TOOLS_LIBS) $(DIMACS_OBJS) | $(LIB_DIR)
 	$(LINK_CMD) \
@@ -463,20 +412,85 @@ test_cc_tests: cc
 	$(MAKE) rcc_min_max_test
 	$(MAKE) rcc_visitor_test
 
-$(OBJ_DIR)/%.$O: $(TEST_DIR)/%.cc $(CP_DEPS) $(SAT_DEPS) $(LP_DEPS) | $(OBJ_DIR)
+$(OBJ_DIR)/%.$O: $(TEST_DIR)/%.cc \
+ $(BASE_DEPS) $(PORT_DEPS) $(UTIL_DEPS) \
+ $(DATA_DEPS) $(LP_DATA_DEPS) \
+ $(LP_DEPS) $(GLOP_DEPS) $(BOP_DEPS) \
+ $(CP_DEPS) $(SAT_DEPS) \
+ $(GRAPH_DEPS) $(ALGORITHMS_DEPS) \
+ | $(OBJ_DIR)
 	$(CCC) $(CFLAGS) -c $(TEST_PATH)$S$*.cc $(OBJ_OUT)$(OBJ_DIR)$S$*.$O
 
 .PHONY: test_cc_examples # Build and Run all C++ Examples (located in examples/cpp)
 test_cc_examples: cc
-	$(MAKE) rcc_golomb ARGS="--size=5"
-	$(MAKE) rcc_cvrptw
-	$(MAKE) rcc_flow_api
 	$(MAKE) rcc_linear_programming
 	$(MAKE) rcc_integer_programming
+	$(MAKE) rcc_constraint_programming_cp
+	$(MAKE) rcc_rabbits_pheasants_cp
 	$(MAKE) rcc_tsp
+	$(MAKE) rcc_vrp
+	$(MAKE) rcc_knapsack
+	$(MAKE) rcc_max_flow
+	$(MAKE) rcc_min_cost_flow
+	$(MAKE) rcc_nurses_cp
+	$(MAKE) rcc_job_shop_cp
+	$(MAKE) rcc_costas_array
+	$(MAKE) rcc_cryptarithm
+	$(MAKE) rcc_cvrp_disjoint_tw
+	$(MAKE) rcc_cvrptw
+	$(MAKE) rcc_cvrptw_with_breaks
+	$(MAKE) rcc_cvrptw_with_refueling
+	$(MAKE) rcc_cvrptw_with_resources
+	$(MAKE) rcc_cvrptw_with_stop_times_and_resources
+	$(MAKE) rcc_dimacs_assignment ARGS=examples/data/dimacs/assignment/small.asn
+	$(MAKE) rcc_dobble_ls
+	$(MAKE) rcc_flexible_jobshop ARGS="--data_file examples/data/flexible_jobshop/hurink_data/edata/la01.fjs"
+	$(MAKE) rcc_flow_api
+#	$(MAKE) rcc_frequency_assignment_problem  # Need data file
+	$(MAKE) rcc_golomb ARGS="--size=5"
+	$(MAKE) rcc_jobshop ARGS="--data_file=examples/data/jobshop/ft06"
+	$(MAKE) rcc_jobshop_earlytardy ARGS="--machine_count=6 --job_count=6"
+	$(MAKE) rcc_jobshop_ls ARGS="--data_file=examples/data/jobshop/ft06"
+	$(MAKE) rcc_jobshop_sat ARGS="--input=examples/data/jobshop/ft06"
+	$(MAKE) rcc_linear_assignment_api
+	$(MAKE) rcc_linear_solver_protocol_buffers
+	$(MAKE) rcc_ls_api
+	$(MAKE) rcc_magic_square
+#	$(MAKE) rcc_model_util  # Need data file
+	$(MAKE) rcc_mps_driver
+	$(MAKE) rcc_multidim_knapsack ARGS="--data_file examples/data/multidim_knapsack/PB1.DAT"
+	$(MAKE) rcc_network_routing ARGS="--clients=10 --backbones=5 --demands=10 --traffic_min=5 --traffic_max=10 --min_client_degree=2 --max_client_degree=5 --min_backbone_degree=3 --max_backbone_degree=5 --max_capacity=20 --fixed_charge_cost=10"
+	$(MAKE) rcc_nqueens
+	$(MAKE) rcc_random_tsp
+#	$(MAKE) rcc_pdptw ARGS="--pdp_file examples/data/pdptw/LC1_2_1.txt" # Fails on windows...
+#	$(MAKE) rcc_shift_minimization_sat  # Port to new API.
+#	$(MAKE) rcc_solve  # Need data file
+	$(MAKE) rcc_sports_scheduling ARGS="--num_teams=8 --time_limit=10000"
+	$(MAKE) rcc_strawberry_fields_with_column_generation
+	$(MAKE) rcc_weighted_tardiness_sat
 
-$(OBJ_DIR)/%.$O: $(CC_EX_DIR)/%.cc $(CP_DEPS) $(SAT_DEPS) $(LP_DEPS)| $(OBJ_DIR)
+$(OBJ_DIR)/%.$O: $(CC_EX_DIR)/%.cc \
+ $(BASE_DEPS) $(PORT_DEPS) $(UTIL_DEPS) \
+ $(DATA_DEPS) $(LP_DATA_DEPS) \
+ $(LP_DEPS) $(GLOP_DEPS) $(BOP_DEPS) \
+ $(CP_DEPS) $(SAT_DEPS) \
+ $(GRAPH_DEPS) $(ALGORITHMS_DEPS) \
+ | $(OBJ_DIR)
 	$(CCC) $(CFLAGS) -c $(CC_EX_PATH)$S$*.cc $(OBJ_OUT)$(OBJ_DIR)$S$*.$O
+
+.PHONY: check_cc_examples # Build and Run few C++ Examples
+check_cc_examples:
+	$(MAKE) rcc_linear_programming
+	$(MAKE) rcc_integer_programming
+	$(MAKE) rcc_constraint_programming_cp
+	$(MAKE) rcc_rabbits_pheasants_cp
+	$(MAKE) rcc_tsp
+	$(MAKE) rcc_vrp
+	$(MAKE) rcc_knapsack
+	$(MAKE) rcc_max_flow
+	$(MAKE) rcc_min_cost_flow
+	$(MAKE) rcc_nurses_cp
+	$(MAKE) rcc_job_shop_cp
 
 .PHONY: test_cc_samples # Build and Run all C++ Samples (located in ortools/*/samples)
 test_cc_samples: cc
@@ -497,7 +511,13 @@ test_cc_samples: cc
 	$(MAKE) rcc_solve_with_time_limit
 	$(MAKE) rcc_stop_after_n_solutions
 
-$(OBJ_DIR)/%.$O: ortools/sat/samples/%.cc $(CP_DEPS) $(SAT_DEPS) $(LP_DEPS) | $(OBJ_DIR)
+$(OBJ_DIR)/%.$O: ortools/sat/samples/%.cc \
+ $(BASE_DEPS) $(PORT_DEPS) $(UTIL_DEPS) \
+ $(DATA_DEPS) $(LP_DATA_DEPS) \
+ $(LP_DEPS) $(GLOP_DEPS) $(BOP_DEPS) \
+ $(CP_DEPS) $(SAT_DEPS) \
+ $(GRAPH_DEPS) $(ALGORITHMS_DEPS) \
+ | $(OBJ_DIR)
 	$(CCC) $(CFLAGS) -c ortools$Ssat$Ssamples$S$*.cc $(OBJ_OUT)$(OBJ_DIR)$S$*.$O
 
 $(BIN_DIR)/%$E: $(OR_TOOLS_LIBS) $(OBJ_DIR)/%.$O | $(BIN_DIR)

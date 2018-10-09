@@ -1,0 +1,11 @@
+C:\work\or-tools\bin\Program.deps.json
+C:\work\or-tools\bin\Program.runtimeconfig.json
+C:\work\or-tools\bin\Program.runtimeconfig.dev.json
+C:\work\or-tools\bin\Program.dll
+C:\work\or-tools\bin\Program.pdb
+C:\work\or-tools\examples\dotnet\fsharp\obj\x64\Debug\netcoreapp2.0\Program.fsprojAssemblyReference.cache
+C:\work\or-tools\examples\dotnet\fsharp\obj\x64\Debug\netcoreapp2.0\Program.AssemblyInfoInputs.cache
+C:\work\or-tools\examples\dotnet\fsharp\obj\x64\Debug\netcoreapp2.0\Program.AssemblyInfo.fs
+C:\work\or-tools\examples\dotnet\fsharp\obj\x64\Debug\netcoreapp2.0\Program.fsproj.CopyComplete
+C:\work\or-tools\examples\dotnet\fsharp\obj\x64\Debug\netcoreapp2.0\Program.dll
+C:\work\or-tools\examples\dotnet\fsharp\obj\x64\Debug\netcoreapp2.0\Program.pdb

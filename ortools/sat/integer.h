@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include <unordered_map>
 #include "ortools/base/hash.h"
 #include "ortools/base/inlined_vector.h"
 #include "ortools/base/int_type.h"
@@ -446,29 +447,19 @@ class IntegerTrail : public SatPropagator {
                                      IntegerValue upper_bound);
 
   // Same as above but for a more complex domain specified as a sorted list of
-  // disjoint intervals. Note that the ClosedInterval struct use int64 instead
-  // of integer values (but we will convert them internally).
-  //
-  // Precondition: we check that IntervalsAreSortedAndDisjoint(domain) is true.
-  IntegerVariable AddIntegerVariable(const std::vector<ClosedInterval>& domain);
+  // disjoint intervals. See the Domain class.
+  IntegerVariable AddIntegerVariable(const Domain& domain);
 
-  // Returns the initial domain of the given variable. Note that for variables
-  // whose domain is a single interval, this is updated with level zero
-  // propagations, but not if the domain is more complex.
-  std::vector<ClosedInterval> InitialVariableDomain(IntegerVariable var) const;
+  // Returns the initial domain of the given variable. Note that the min/max
+  // are updated with level zero propagation, but not holes.
+  Domain InitialVariableDomain(IntegerVariable var) const;
 
   // Takes the intersection with the current initial variable domain.
   //
   // TODO(user): There is some memory inefficiency if this is called many time
   // because of the underlying data structure we use. In practice, when used
   // with a presolve, this is not often used, so that is fine though.
-  //
-  // TODO(user): The Enqueue() done at level zero on a variable are not
-  // reflected on its initial domain. That can causes issue if the variable
-  // is fully encoded afterwards because literals will be created for the values
-  // no longer relevant, and these will not be propagated right away.
-  bool UpdateInitialDomain(IntegerVariable var,
-                           std::vector<ClosedInterval> domain);
+  bool UpdateInitialDomain(IntegerVariable var, Domain domain);
 
   // Same as AddIntegerVariable(value, value), but this is a bit more efficient
   // because it reuses another constant with the same value if its exist.
@@ -530,6 +521,25 @@ class IntegerTrail : public SatPropagator {
   // the given integer variable.
   IntegerLiteral LowerBoundAsLiteral(IntegerVariable i) const;
   IntegerLiteral UpperBoundAsLiteral(IntegerVariable i) const;
+
+  // Advanced usage. Given the reason for
+  // (Sum_i coeffs[i] * reason[i].var >= current_lb) initially in reason,
+  // this function relaxes the reason given that we only need the explanation of
+  // (Sum_i coeffs[i] * reason[i].var >= current_lb - slack).
+  //
+  // Preconditions:
+  // - coeffs must be of same size as reason, and all entry must be positive.
+  // - *reason must initially contains the trivial initial reason, that is
+  //   the current lower-bound of each variables.
+  //
+  // TODO(user): Requiring all initial literal to be at their current bound is
+  // not really clean. Maybe we can change the API to only take IntegerVariable
+  // and produce the reason directly.
+  //
+  // TODO(user): change API so that this work is performed during the conflict
+  // analysis. Note that we could be smarter there.
+  void RelaxLinearReason(IntegerValue slack, absl::Span<IntegerValue> coeffs,
+                         std::vector<IntegerLiteral>* reason) const;
 
   // Enqueue new information about a variable bound. Calling this with a less
   // restrictive bound than the current one will have no effect.
@@ -721,20 +731,13 @@ class IntegerTrail : public SatPropagator {
   gtl::ITIVector<IntegerVariable, LiteralIndex> is_ignored_literals_;
 
   // This is only filled for variables with a domain more complex than a single
-  // interval of values. All intervals are stored in a vector, and we keep
-  // indices to the current interval of the lower bound, and to the end index
-  // which is exclusive.
+  // interval of values. var_to_current_lb_interval_index_[var] stores the
+  // intervals in (*domains_)[var] where the current lower-bound lies.
   //
-  // TODO(user): Avoid using hash_map here and above, a simple vector should
-  // be more efficient. Except if there is really little variables like this.
-  //
-  // TODO(user): We could share the std::vector<ClosedInterval> entry between a
-  // variable and its negations instead of having duplicates.
+  // TODO(user): Avoid using hash_map here, a simple vector should be more
+  // efficient, but we need the "rev" aspect.
   RevMap<std::unordered_map<IntegerVariable, int>>
       var_to_current_lb_interval_index_;
-  std::unordered_map<IntegerVariable, int>
-      var_to_end_interval_index_;              // const entries.
-  std::vector<ClosedInterval> all_intervals_;  // const entries.
 
   // Temporary data used by MergeReasonInto().
   mutable std::vector<int> tmp_queue_;
@@ -1029,7 +1032,7 @@ inline std::function<IntegerVariable(Model*)> NewIntegerVariable(int64 lb,
 }
 
 inline std::function<IntegerVariable(Model*)> NewIntegerVariable(
-    const std::vector<ClosedInterval>& domain) {
+    const Domain& domain) {
   return [=](Model* model) {
     return model->GetOrCreate<IntegerTrail>()->AddIntegerVariable(domain);
   };

@@ -1,0 +1,12 @@
+C:\work\or-tools\bin\tsp.deps.json
+C:\work\or-tools\bin\tsp.runtimeconfig.json
+C:\work\or-tools\bin\tsp.runtimeconfig.dev.json
+C:\work\or-tools\bin\tsp.dll
+C:\work\or-tools\bin\tsp.pdb
+C:\work\or-tools\examples\dotnet\csharp\obj\x64\Debug\netcoreapp2.0\tsp.csprojAssemblyReference.cache
+C:\work\or-tools\examples\dotnet\csharp\obj\x64\Debug\netcoreapp2.0\tsp.csproj.CoreCompileInputs.cache
+C:\work\or-tools\examples\dotnet\csharp\obj\x64\Debug\netcoreapp2.0\tsp.AssemblyInfoInputs.cache
+C:\work\or-tools\examples\dotnet\csharp\obj\x64\Debug\netcoreapp2.0\tsp.AssemblyInfo.cs
+C:\work\or-tools\examples\dotnet\csharp\obj\x64\Debug\netcoreapp2.0\tsp.csproj.CopyComplete
+C:\work\or-tools\examples\dotnet\csharp\obj\x64\Debug\netcoreapp2.0\tsp.dll
+C:\work\or-tools\examples\dotnet\csharp\obj\x64\Debug\netcoreapp2.0\tsp.pdb

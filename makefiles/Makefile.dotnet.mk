@@ -76,7 +76,7 @@ DOTNET_ORTOOLS_SNK := $(BIN_DIR)/or-tools.snk
 DOTNET_ORTOOLS_SNK_PATH := $(subst /,$S,$(DOTNET_ORTOOLS_SNK))
 OR_TOOLS_ASSEMBLY_NAME := Google.OrTools
 OR_TOOLS_TESTS_ASSEMBLY_NAME := Google.OrTools.Tests
-OR_TOOLS_NATIVE_ASSEMBLY_NAME := runtime.$(RUNTIME_IDENTIFIER).$(OR_TOOLS_ASSEMBLY_NAME)
+OR_TOOLS_NATIVE_ASSEMBLY_NAME := $(OR_TOOLS_ASSEMBLY_NAME).runtime.$(RUNTIME_IDENTIFIER)
 OR_TOOLS_FSHARP_ASSEMBLY_NAME := $(OR_TOOLS_ASSEMBLY_NAME).FSharp
 OR_TOOLS_FSHARP_TESTS_ASSEMBLY_NAME := $(OR_TOOLS_ASSEMBLY_NAME).FSharp.Tests
 DOTNET_ORTOOLS_NUPKG := $(PACKAGE_DIR)/$(OR_TOOLS_ASSEMBLY_NAME).$(OR_TOOLS_VERSION).nupkg
@@ -535,6 +535,7 @@ test_dotnet_examples_csharp: $(DOTNET_ORTOOLS_NUPKG)
 	$(MAKE) rdotnet_to_num
 	$(MAKE) rdotnet_traffic_lights
 	$(MAKE) rdotnet_tsp
+	$(MAKE) rdotnet_vrp
 	$(MAKE) rdotnet_volsay
 	$(MAKE) rdotnet_volsay2
 	$(MAKE) rdotnet_volsay3
@@ -632,8 +633,8 @@ $(TEMP_DOTNET_DIR)/%$D: \
  $(DOTNET_ORTOOLS_NUPKG) \
  | $(TEMP_DOTNET_DIR)
 	"$(DOTNET_BIN)" build \
- -o "..$S..$S..$S$(TEMP_DOTNET_DIR)" \
- $(DOTNET_EX_PATH)$Scsharp$S$*.csproj
+ -o "..$S..$S$(TEMP_DOTNET_DIR)" \
+ $(DOTNET_EX_PATH)$S$*.csproj
 
 $(TEMP_DOTNET_DIR)/%$D: \
  $(DOTNET_EX_DIR)/%.fsproj \
@@ -641,8 +642,8 @@ $(TEMP_DOTNET_DIR)/%$D: \
  $(DOTNET_ORTOOLS_FSHARP_NUPKG) \
  | $(TEMP_DOTNET_DIR)
 	"$(DOTNET_BIN)" build \
- -o "..$S..$S..$S$(TEMP_DOTNET_DIR)" \
- $(DOTNET_EX_PATH)$Sfsharp$S$*.fsproj
+ -o "..$S..$S$(TEMP_DOTNET_DIR)" \
+ $(DOTNET_EX_PATH)$S$*.fsproj
 
 ################
 ##  Cleaning  ##

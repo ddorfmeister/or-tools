@@ -1,0 +1,11 @@
+C:\work\or-tools\tools\dotnet\CreateSigningKey\bin\x64\Debug\netcoreapp2.1\CreateSigningKey.deps.json
+C:\work\or-tools\tools\dotnet\CreateSigningKey\bin\x64\Debug\netcoreapp2.1\CreateSigningKey.runtimeconfig.json
+C:\work\or-tools\tools\dotnet\CreateSigningKey\bin\x64\Debug\netcoreapp2.1\CreateSigningKey.runtimeconfig.dev.json
+C:\work\or-tools\tools\dotnet\CreateSigningKey\bin\x64\Debug\netcoreapp2.1\CreateSigningKey.dll
+C:\work\or-tools\tools\dotnet\CreateSigningKey\bin\x64\Debug\netcoreapp2.1\CreateSigningKey.pdb
+C:\work\or-tools\tools\dotnet\CreateSigningKey\obj\x64\Debug\netcoreapp2.1\CreateSigningKey.csprojAssemblyReference.cache
+C:\work\or-tools\tools\dotnet\CreateSigningKey\obj\x64\Debug\netcoreapp2.1\CreateSigningKey.csproj.CoreCompileInputs.cache
+C:\work\or-tools\tools\dotnet\CreateSigningKey\obj\x64\Debug\netcoreapp2.1\CreateSigningKey.AssemblyInfoInputs.cache
+C:\work\or-tools\tools\dotnet\CreateSigningKey\obj\x64\Debug\netcoreapp2.1\CreateSigningKey.AssemblyInfo.cs
+C:\work\or-tools\tools\dotnet\CreateSigningKey\obj\x64\Debug\netcoreapp2.1\CreateSigningKey.dll
+C:\work\or-tools\tools\dotnet\CreateSigningKey\obj\x64\Debug\netcoreapp2.1\CreateSigningKey.pdb

@@ -1,0 +1,12 @@
+C:\work\or-tools\bin\a_puzzle.deps.json
+C:\work\or-tools\bin\a_puzzle.runtimeconfig.json
+C:\work\or-tools\bin\a_puzzle.runtimeconfig.dev.json
+C:\work\or-tools\bin\a_puzzle.dll
+C:\work\or-tools\bin\a_puzzle.pdb
+C:\work\or-tools\examples\dotnet\csharp\obj\x64\Debug\netcoreapp2.0\a_puzzle.csprojAssemblyReference.cache
+C:\work\or-tools\examples\dotnet\csharp\obj\x64\Debug\netcoreapp2.0\a_puzzle.csproj.CoreCompileInputs.cache
+C:\work\or-tools\examples\dotnet\csharp\obj\x64\Debug\netcoreapp2.0\a_puzzle.AssemblyInfoInputs.cache
+C:\work\or-tools\examples\dotnet\csharp\obj\x64\Debug\netcoreapp2.0\a_puzzle.AssemblyInfo.cs
+C:\work\or-tools\examples\dotnet\csharp\obj\x64\Debug\netcoreapp2.0\a_puzzle.csproj.CopyComplete
+C:\work\or-tools\examples\dotnet\csharp\obj\x64\Debug\netcoreapp2.0\a_puzzle.dll
+C:\work\or-tools\examples\dotnet\csharp\obj\x64\Debug\netcoreapp2.0\a_puzzle.pdb

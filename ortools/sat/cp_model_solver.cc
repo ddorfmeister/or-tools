@@ -304,9 +304,9 @@ std::vector<int64> ValuesFromProto(const Values& values) {
 }
 
 // Returns the size of the given domain capped to int64max.
-int64 DomainSize(const std::vector<ClosedInterval>& domain) {
+int64 DomainSize(const Domain& domain) {
   int64 size = 0;
-  for (const ClosedInterval interval : domain) {
+  for (const ClosedInterval interval : domain.intervals()) {
     size += operations_research::CapAdd(
         1, operations_research::CapSub(interval.end, interval.start));
   }
@@ -318,6 +318,7 @@ int64 DomainSize(const std::vector<ClosedInterval>& domain) {
 // never have any trivial inequalities.
 void ModelWithMapping::ExtractEncoding(const CpModelProto& model_proto) {
   IntegerEncoder* encoder = GetOrCreate<IntegerEncoder>();
+  IntegerTrail* integer_trail = GetOrCreate<IntegerTrail>();
 
   // Detection of literal equivalent to (i_var == value). We collect all the
   // half-reified constraint lit => equality or lit => inequality for a given
@@ -369,24 +370,27 @@ void ModelWithMapping::ExtractEncoding(const CpModelProto& model_proto) {
     const sat::Literal enforcement_literal = Literal(ct.enforcement_literal(0));
     const int ref = ct.linear().vars(0);
     const int var = PositiveRef(ref);
-    const auto domain = ReadDomain(model_proto.variables(var));
-    const auto rhs = InverseMultiplicationOfSortedDisjointIntervals(
-        ReadDomain(ct.linear()),
-        ct.linear().coeffs(0) * (RefIsPositive(ref) ? 1 : -1));
+
+    const Domain domain = ReadDomainFromProto(model_proto.variables(var));
+    const Domain domain_if_enforced =
+        ReadDomainFromProto(ct.linear())
+            .InverseMultiplicationBy(ct.linear().coeffs(0) *
+                                     (RefIsPositive(ref) ? 1 : -1));
 
     // Detect enforcement_literal => (var >= value or var <= value).
-    if (rhs.size() == 1) {
-      // We relax by 1 because we may take the negation of the rhs above.
-      if (rhs[0].end >= domain.back().end &&
-          rhs[0].start > domain.front().start) {
-        inequalities.push_back({&ct, enforcement_literal,
-                                IntegerLiteral::GreaterOrEqual(
-                                    Integer(var), IntegerValue(rhs[0].start))});
-      } else if (rhs[0].start <= domain.front().start &&
-                 rhs[0].end < domain.back().end) {
-        inequalities.push_back({&ct, enforcement_literal,
-                                IntegerLiteral::LowerOrEqual(
-                                    Integer(var), IntegerValue(rhs[0].end))});
+    if (domain_if_enforced.intervals().size() == 1) {
+      if (domain_if_enforced.Max() >= domain.Max() &&
+          domain_if_enforced.Min() > domain.Min()) {
+        inequalities.push_back(
+            {&ct, enforcement_literal,
+             IntegerLiteral::GreaterOrEqual(
+                 Integer(var), IntegerValue(domain_if_enforced.Min()))});
+      } else if (domain_if_enforced.Min() <= domain.Min() &&
+                 domain_if_enforced.Max() < domain.Max()) {
+        inequalities.push_back(
+            {&ct, enforcement_literal,
+             IntegerLiteral::LowerOrEqual(
+                 Integer(var), IntegerValue(domain_if_enforced.Max()))});
       }
     }
 
@@ -396,18 +400,18 @@ void ModelWithMapping::ExtractEncoding(const CpModelProto& model_proto) {
     // and != 1. Similarly, for a domain in [min, max], we should both detect
     // (== min) and (<= min), and both detect (== max) and (>= max).
     {
-      const auto inter = IntersectionOfSortedDisjointIntervals(domain, rhs);
-      if (inter.size() == 1 && inter[0].start == inter[0].end) {
+      const Domain inter = domain.IntersectionWith(domain_if_enforced);
+      if (!inter.IsEmpty() && inter.Min() == inter.Max()) {
         var_to_equalities[var].push_back(
-            {&ct, enforcement_literal, inter[0].start, true});
+            {&ct, enforcement_literal, inter.Min(), true});
       }
     }
     {
-      const auto inter = IntersectionOfSortedDisjointIntervals(
-          domain, ComplementOfSortedDisjointIntervals(rhs));
-      if (inter.size() == 1 && inter[0].start == inter[0].end) {
+      const Domain inter =
+          domain.IntersectionWith(domain_if_enforced.Complement());
+      if (!inter.IsEmpty() && inter.Min() == inter.Max()) {
         var_to_equalities[var].push_back(
-            {&ct, enforcement_literal, inter[0].start, false});
+            {&ct, enforcement_literal, inter.Min(), false});
       }
     }
   }
@@ -417,6 +421,14 @@ void ModelWithMapping::ExtractEncoding(const CpModelProto& model_proto) {
   std::sort(inequalities.begin(), inequalities.end());
   for (int i = 0; i + 1 < inequalities.size(); i++) {
     if (inequalities[i].literal != inequalities[i + 1].literal.Negated()) {
+      continue;
+    }
+    if (inequalities[i].i_lit.bound <=
+        integer_trail->LowerBound(inequalities[i].i_lit.var)) {
+      continue;
+    }
+    if (inequalities[i + 1].i_lit.bound <=
+        integer_trail->LowerBound(inequalities[i + 1].i_lit.var)) {
       continue;
     }
     const auto pair_a = encoder->Canonicalize(inequalities[i].i_lit);
@@ -465,8 +477,7 @@ void ModelWithMapping::ExtractEncoding(const CpModelProto& model_proto) {
     // Detect fully encoded variables and mark them as such.
     //
     // TODO(user): Also fully encode variable that are almost fully encoded.
-    const std::vector<ClosedInterval> domain =
-        ReadDomain(model_proto.variables(i));
+    const Domain domain = ReadDomainFromProto(model_proto.variables(i));
     if (DomainSize(domain) == values.size()) {
       ++num_fully_encoded;
       if (!encoder->VariableIsFullyEncoded(integers_[i])) {
@@ -580,7 +591,7 @@ ModelWithMapping::ModelWithMapping(const CpModelProto& model_proto,
   integers_.resize(num_proto_variables, kNoIntegerVariable);
   for (const int i : var_to_instantiate_as_integer) {
     const auto& var_proto = model_proto.variables(i);
-    integers_[i] = Add(NewIntegerVariable(ReadDomain(var_proto)));
+    integers_[i] = Add(NewIntegerVariable(ReadDomainFromProto(var_proto)));
     if (integers_[i] >= reverse_integer_map_.size()) {
       reverse_integer_map_.resize(integers_[i].value() + 1, -1);
     }
@@ -1108,7 +1119,7 @@ void DetectEquivalencesInElementConstraint(const ConstraintProto& ct,
 
   if (m->Get(IsFixed(index))) return;
 
-  std::vector<ClosedInterval> union_of_non_constant_domains;
+  Domain union_of_non_constant_domains;
   std::map<IntegerValue, int> constant_to_num;
   for (const auto literal_value : m->Add(FullyEncodeVariable(index))) {
     const int i = literal_value.value.value();
@@ -1116,16 +1127,14 @@ void DetectEquivalencesInElementConstraint(const ConstraintProto& ct,
       const IntegerValue value(m->Get(Value(vars[i])));
       constant_to_num[value]++;
     } else {
-      union_of_non_constant_domains = UnionOfSortedDisjointIntervals(
-          union_of_non_constant_domains,
+      union_of_non_constant_domains = union_of_non_constant_domains.UnionWith(
           integer_trail->InitialVariableDomain(vars[i]));
     }
   }
 
   // Bump the number if the constant appear in union_of_non_constant_domains.
   for (const auto entry : constant_to_num) {
-    if (SortedDisjointIntervalsContain(union_of_non_constant_domains,
-                                       entry.first.value())) {
+    if (union_of_non_constant_domains.Contains(entry.first.value())) {
       constant_to_num[entry.first]++;
     }
   }
@@ -1496,14 +1505,13 @@ std::string CpModelStats(const CpModelProto& model_proto) {
 
   int num_constants = 0;
   std::set<int64> constant_values;
-  std::map<std::vector<ClosedInterval>, int, ExactVectorOfDomainComparator>
-      num_vars_per_domains;
+  std::map<Domain, int> num_vars_per_domains;
   for (const IntegerVariableProto& var : model_proto.variables()) {
     if (var.domain_size() == 2 && var.domain(0) == var.domain(1)) {
       ++num_constants;
       constant_values.insert(var.domain(0));
     } else {
-      num_vars_per_domains[ReadDomain(var)]++;
+      num_vars_per_domains[ReadDomainFromProto(var)]++;
     }
   }
 
@@ -1537,8 +1545,8 @@ std::string CpModelStats(const CpModelProto& model_proto) {
                   objective_string.c_str(), "\n");
   if (num_vars_per_domains.size() < 50) {
     for (const auto& entry : num_vars_per_domains) {
-      const std::string temp = absl::StrCat(
-          " - ", entry.second, " in ", IntervalsAsString(entry.first), "\n");
+      const std::string temp = absl::StrCat(" - ", entry.second, " in ",
+                                            entry.first.ToString().c_str(), "\n");
       absl::StrAppend(&result, Summarize(temp));
     }
   } else {
@@ -1546,10 +1554,10 @@ std::string CpModelStats(const CpModelProto& model_proto) {
     int64 min = kint64max;
     int64 max = kint64min;
     for (const auto& entry : num_vars_per_domains) {
-      min = std::min(min, entry.first.front().start);
-      max = std::max(max, entry.first.back().end);
-      max_complexity =
-          std::max(max_complexity, static_cast<int64>(entry.first.size()));
+      min = std::min(min, entry.first.Min());
+      max = std::max(max, entry.first.Max());
+      max_complexity = std::max(
+          max_complexity, static_cast<int64>(entry.first.intervals().size()));
     }
     absl::StrAppend(&result, " - ", num_vars_per_domains.size(),
                     " different domains in [", min, ",", max,
@@ -2517,8 +2525,8 @@ CpSolverResponse SolveCpModelInternal(
 
   // Intersect the objective domain with the given one if any.
   if (!model_proto.objective().domain().empty()) {
-    const auto user_domain = ReadDomain(model_proto.objective());
-    const auto automatic_domain =
+    const Domain user_domain = ReadDomainFromProto(model_proto.objective());
+    const Domain automatic_domain =
         model->GetOrCreate<IntegerTrail>()->InitialVariableDomain(
             objective_var);
     VLOG(2) << "Objective offset:" << model_proto.objective().offset()
@@ -2741,10 +2749,10 @@ void PostsolveResponse(const CpModelProto& model_proto,
   }
   for (int i = 0; i < response->solution_lower_bounds_size(); ++i) {
     auto* var_proto = mapping_proto.mutable_variables(postsolve_mapping[i]);
-    FillDomain(
-        IntersectionOfSortedDisjointIntervals(
-            ReadDomain(*var_proto), {{response->solution_lower_bounds(i),
-                                      response->solution_upper_bounds(i)}}),
+    FillDomainInProto(
+        ReadDomainFromProto(*var_proto)
+            .IntersectionWith({response->solution_lower_bounds(i),
+                               response->solution_upper_bounds(i)}),
         var_proto);
   }
 
@@ -3154,35 +3162,37 @@ CpSolverResponse SolveCpModelParallel(
   const int num_search_workers = params.num_search_workers();
   VLOG(1) << "Starting parallel search with " << num_search_workers
           << " workers.";
-  ThreadPool pool("Parallel_search", num_search_workers);
-  pool.StartWorkers();
 
   if (!model_proto.has_objective()) {
-    for (int worker_id = 0; worker_id < num_search_workers; ++worker_id) {
-      std::string worker_name;
-      const SatParameters local_params = DiversifySearchParameters(
-          params, model_proto, worker_id, &worker_name);
-      pool.Schedule([&model_proto, stopped, local_params, &best_response,
-                     &mutex, worker_name]() {
-        Model local_model;
-        local_model.Add(NewSatParameters(local_params));
-        local_model.GetOrCreate<TimeLimit>()->RegisterExternalBooleanAsLimit(
-            stopped);
-        const CpSolverResponse local_response = SolveCpModelInternal(
-            model_proto, true, [](const CpSolverResponse& response) {},
-            &local_model);
+    {
+      ThreadPool pool("Parallel_search", num_search_workers);
+      pool.StartWorkers();
+      for (int worker_id = 0; worker_id < num_search_workers; ++worker_id) {
+        std::string worker_name;
+        const SatParameters local_params = DiversifySearchParameters(
+            params, model_proto, worker_id, &worker_name);
+        pool.Schedule([&model_proto, stopped, local_params, &best_response,
+                        &mutex, worker_name]() {
+          Model local_model;
+          local_model.Add(NewSatParameters(local_params));
+          local_model.GetOrCreate<TimeLimit>()->RegisterExternalBooleanAsLimit(
+              stopped);
+          const CpSolverResponse local_response = SolveCpModelInternal(
+              model_proto, true, [](const CpSolverResponse& response) {},
+              &local_model);
 
-        absl::MutexLock lock(&mutex);
-        if (best_response.status() == CpSolverStatus::UNKNOWN) {
-          best_response = local_response;
-        }
-        if (local_response.status() != CpSolverStatus::UNKNOWN) {
-          CHECK_EQ(local_response.status(), best_response.status());
-          VLOG(1) << "Solution found by worker '" << worker_name << "'.";
-          *stopped = true;
-        }
-      });
-    }
+          absl::MutexLock lock(&mutex);
+          if (best_response.status() == CpSolverStatus::UNKNOWN) {
+            best_response = local_response;
+          }
+          if (local_response.status() != CpSolverStatus::UNKNOWN) {
+            CHECK_EQ(local_response.status(), best_response.status());
+            VLOG(1) << "Solution found by worker '" << worker_name << "'.";
+            *stopped = true;
+          }
+        });
+      }
+    }  // Force the dtor of the threadpool.
     return best_response;
   }
 
@@ -3195,80 +3205,83 @@ CpSolverResponse SolveCpModelParallel(
     absl::MutexLock lock(&mutex);
     return best_response;
   };
+  {
+    ThreadPool pool("Parallel_search", num_search_workers);
+    pool.StartWorkers();
+    for (int worker_id = 0; worker_id < num_search_workers; ++worker_id) {
+      std::string worker_name;
+      const SatParameters local_params =
+          DiversifySearchParameters(params, model_proto, worker_id, &worker_name);
 
-  for (int worker_id = 0; worker_id < num_search_workers; ++worker_id) {
-    std::string worker_name;
-    const SatParameters local_params =
-        DiversifySearchParameters(params, model_proto, worker_id, &worker_name);
+      const auto solution_observer =
+          [maximize, worker_name, &mutex, &best_response, &observer,
+          &first_solution_found_or_search_finished](const CpSolverResponse& r) {
+            absl::MutexLock lock(&mutex);
 
-    const auto solution_observer =
-        [maximize, worker_name, &mutex, &best_response, &observer,
-         &first_solution_found_or_search_finished](const CpSolverResponse& r) {
-          absl::MutexLock lock(&mutex);
-
-          // Check is the new solution is actually improving upon the best
-          // solution found so far.
-          if (MergeOptimizationSolution(r, maximize, &best_response)) {
-            best_response.set_solution_info(
-                absl::StrCat(worker_name, " ", best_response.solution_info()));
-            observer(best_response);
-            // We have potentially displayed the improving solution, and updated
-            // the best_response. We can awaken sleeping LNS threads.
-            if (!first_solution_found_or_search_finished.HasBeenNotified()) {
-              first_solution_found_or_search_finished.Notify();
+            // Check is the new solution is actually improving upon the best
+            // solution found so far.
+            if (MergeOptimizationSolution(r, maximize, &best_response)) {
+              best_response.set_solution_info(
+                  absl::StrCat(worker_name, " ", best_response.solution_info()));
+              observer(best_response);
+              // We have potentially displayed the improving solution, and updated
+              // the best_response. We can awaken sleeping LNS threads.
+              if (!first_solution_found_or_search_finished.HasBeenNotified()) {
+                first_solution_found_or_search_finished.Notify();
+              }
             }
-          }
-        };
+          };
 
-    pool.Schedule([&model_proto, solution_observer, solution_synchronization,
-                   objective_synchronization, stopped, local_params, worker_id,
-                   &mutex, &best_response, num_search_workers, random_seed,
-                   &first_solution_found_or_search_finished, maximize,
-                   worker_name]() {
-      Model local_model;
-      local_model.Add(NewSatParameters(local_params));
-      local_model.GetOrCreate<TimeLimit>()->RegisterExternalBooleanAsLimit(
-          stopped);
-      SetSynchronizationFunction(std::move(solution_synchronization),
-                                 &local_model);
-      SetObjectiveSynchronizationFunction(std::move(objective_synchronization),
-                                          &local_model);
+      pool.Schedule([&model_proto, solution_observer, solution_synchronization,
+                    objective_synchronization, stopped, local_params, worker_id,
+                    &mutex, &best_response, num_search_workers, random_seed,
+                    &first_solution_found_or_search_finished, maximize,
+                    worker_name]() {
+        Model local_model;
+        local_model.Add(NewSatParameters(local_params));
+        local_model.GetOrCreate<TimeLimit>()->RegisterExternalBooleanAsLimit(
+            stopped);
+        SetSynchronizationFunction(std::move(solution_synchronization),
+                                  &local_model);
+        SetObjectiveSynchronizationFunction(std::move(objective_synchronization),
+                                            &local_model);
 
-      CpSolverResponse thread_response;
-      if (local_params.use_lns()) {
-        first_solution_found_or_search_finished.WaitForNotification();
-        // TODO(user, lperron): Provide a better diversification for different
-        // seeds.
-        thread_response = SolveCpModelWithLNS(
-            model_proto, solution_observer, num_search_workers,
-            worker_id + random_seed, &local_model);
-      } else {
-        thread_response = SolveCpModelInternal(model_proto, true,
-                                               solution_observer, &local_model);
-      }
-
-      // Process final solution. Decide which worker has the 'best'
-      // solution. Note that the solution observer may or may not have been
-      // called.
-      {
-        absl::MutexLock lock(&mutex);
-        VLOG(1) << "Worker '" << worker_name << "' terminates with status "
-                << ProtoEnumToString<CpSolverStatus>(thread_response.status())
-                << " and an objective value of "
-                << thread_response.objective_value();
-
-        MergeOptimizationSolution(thread_response, maximize, &best_response);
-
-        // TODO(user): For now we assume that each worker only terminate when
-        // the time limit is reached or when the problem is solved, so we just
-        // abort all other threads and return.
-        *stopped = true;
-        if (!first_solution_found_or_search_finished.HasBeenNotified()) {
-          first_solution_found_or_search_finished.Notify();
+        CpSolverResponse thread_response;
+        if (local_params.use_lns()) {
+          first_solution_found_or_search_finished.WaitForNotification();
+          // TODO(user, lperron): Provide a better diversification for different
+          // seeds.
+          thread_response = SolveCpModelWithLNS(
+              model_proto, solution_observer, num_search_workers,
+              worker_id + random_seed, &local_model);
+        } else {
+          thread_response = SolveCpModelInternal(model_proto, true,
+                                                solution_observer, &local_model);
         }
-      }
-    });
-  }
+
+        // Process final solution. Decide which worker has the 'best'
+        // solution. Note that the solution observer may or may not have been
+        // called.
+        {
+          absl::MutexLock lock(&mutex);
+          VLOG(1) << "Worker '" << worker_name << "' terminates with status "
+                  << ProtoEnumToString<CpSolverStatus>(thread_response.status())
+                  << " and an objective value of "
+                  << thread_response.objective_value();
+
+          MergeOptimizationSolution(thread_response, maximize, &best_response);
+
+          // TODO(user): For now we assume that each worker only terminate when
+          // the time limit is reached or when the problem is solved, so we just
+          // abort all other threads and return.
+          *stopped = true;
+          if (!first_solution_found_or_search_finished.HasBeenNotified()) {
+            first_solution_found_or_search_finished.Notify();
+          }
+        }
+      });
+    }
+  }  // Force the synchronization of the threadpoool.
   return best_response;
 }
 
@@ -3297,8 +3310,8 @@ CpSolverResponse SolveCpModel(const CpModelProto& model_proto, Model* model) {
   if (!FLAGS_cp_model_dump_file.empty()) {
     LOG(INFO) << "Dumping cp model proto to '" << FLAGS_cp_model_dump_file
               << "'.";
-    CHECK_OK(file::SetBinaryProto(FLAGS_cp_model_dump_file, model_proto,
-                                  file::Defaults()));
+    CHECK_OK(file::SetTextProto(FLAGS_cp_model_dump_file, model_proto,
+                                file::Defaults()));
   }
 
   // Override parameters?

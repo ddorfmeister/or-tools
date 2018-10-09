@@ -463,7 +463,6 @@ class Constraint(object):
 class IntervalVar(object):
   """Represents a Interval variable.
 
-
   An interval variable is both a constraint and a variable. It is defined by
   three integer variables: start, size, and end.
 
@@ -888,7 +887,7 @@ class CpModel(object):
     at
     any time >= 0, it must be within min_level, and max_level. Furthermore, this
     constraints expect all times variables to be >= 0.
-    If the actives[i] is true, and if times[i] is assigned a value t, then the
+    If actives[i] is true, and if times[i] is assigned a value t, then the
     level of the reservoir changes by demands[i] (which is constant) at time t.
 
     Note that level_min can be > 0, or level_max can be < 0. It just forces
@@ -1460,6 +1459,10 @@ class CpSolver(object):
   def ObjectiveValue(self):
     """Returns the value of objective after solve."""
     return self.__solution.objective_value
+
+  def BestObjectiveBound(self):
+    """Returns the best lower (upper) bound found when min(max)imizing."""
+    return self.__solution.best_objective_bound
 
   def StatusName(self, status):
     """Returns the name of the status returned by Solve()."""
