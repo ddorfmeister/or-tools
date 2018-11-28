@@ -56,7 +56,7 @@ function export_manylinux_wheel {
     # We need to force this target, otherwise the protobuf stub will be missing
     # (for the makefile, it exists even if previously generated for another
     # platform)
-    make -B install_python_modules  # regenerates Makefile.local
+    rm -f Makefile.local  # regenerates Makefile.local
     # We need to clean first to avoid to use previous python swig object file
     make clean_python
     make python
@@ -115,14 +115,14 @@ read -r -a SKIP <<< "$SKIP_PLATFORMS"
 # Python scripts to be used as tests for the installed wheel. This list of files
 # has been taken from the 'test_python' make target.
 TESTS=(
-    "${SRC_ROOT}/examples/python/hidato_table.py"
+    "${SRC_ROOT}/ortools/algorithms/samples/simple_knapsack_program.py"
+    "${SRC_ROOT}/ortools/graph/samples/simple_max_flow_program.py"
+    "${SRC_ROOT}/ortools/graph/samples/simple_min_cost_flow_program.py"
+    "${SRC_ROOT}/ortools/linear_solver/samples/simple_lp_program.py"
+    "${SRC_ROOT}/ortools/linear_solver/samples/simple_mip_program.py"
+    "${SRC_ROOT}/ortools/sat/samples/simple_sat_program.py"
     "${SRC_ROOT}/examples/python/tsp.py"
-    "${SRC_ROOT}/examples/python/pyflow_example.py"
-    "${SRC_ROOT}/examples/python/knapsack.py"
-    "${SRC_ROOT}/examples/python/linear_programming.py"
-    "${SRC_ROOT}/examples/python/integer_programming.py"
-    "${SRC_ROOT}/examples/tests/test_cp_api.py"
-    "${SRC_ROOT}/examples/tests/test_lp_api.py"
+    "${SRC_ROOT}/examples/python/vrp.py"
 )
 
 (
@@ -137,7 +137,7 @@ TESTS=(
 # Main
 # Force the use of wheel 0.31.1 since 0.32 is broken
 # cf pypa/auditwheel#102
-/opt/_internal/cpython-3.6.6/bin/python -m pip install wheel==0.31.1
+#/opt/_internal/cpython-3.6.6/bin/python -m pip install wheel==0.31.1
 
 mkdir -p "${BUILD_ROOT}"
 mkdir -p "${EXPORT_ROOT}"

@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -338,7 +338,11 @@ SatSolver::Status SolveIntegerProblemWithLazyEncoding(
            *(model->GetOrCreate<LinearProgrammingConstraintCollection>())) {
         lp_heuristics.push_back(ct->LPReducedCostAverageBranching());
       }
-      if (lp_heuristics.empty()) break;  // Fall back to automatic search.
+      if (lp_heuristics.empty()) {  // Revert to automatic search.
+        return SolveProblemWithPortfolioSearch(
+            {SequentialSearch({next_decision, SatSolverHeuristic(model)})},
+            {SatSolverRestartPolicy(model)}, model);
+      }
       auto portfolio = CompleteHeuristics(
           lp_heuristics,
           SequentialSearch({SatSolverHeuristic(model), next_decision}));

@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -51,10 +51,10 @@ PY_PROTO_TYPEMAP(ortools.sat.sat_parameters_pb2,
 %unignore operations_research::sat::SatHelper::SolveWithParametersAndSolutionCallback;
 %unignore operations_research::sat::SatHelper::ModelStats;
 %unignore operations_research::sat::SatHelper::SolverResponseStats;
+%unignore operations_research::sat::SatHelper::ValidateModel;
 
 %feature("director") operations_research::sat::SolutionCallback;
 %unignore operations_research::sat::SolutionCallback;
-%unignore operations_research::sat::SolutionCallback::SolutionCallback;
 %unignore operations_research::sat::SolutionCallback::~SolutionCallback;
 %unignore operations_research::sat::SolutionCallback::BestObjectiveBound;
 %feature("nodirector") operations_research::sat::SolutionCallback::BestObjectiveBound;

@@ -185,10 +185,15 @@ endif # ($(SYSTEM),win)
 
 # Get github revision level
 ifneq ($(wildcard .git),)
-GIT_REVISION:= $(shell git rev-list --count HEAD)
-GIT_HASH:= $(shell git rev-parse --short HEAD)
+ ifneq ($(wildcard .git/shallow),)
+ $(warning you are using a shallow copy)
+ GIT_REVISION:= 9999
+ else
+ GIT_REVISION:= $(shell git rev-list --count HEAD)
+ endif
+ GIT_HASH:= $(shell git rev-parse --short HEAD)
 else
-GIT_REVISION:= 999
+GIT_REVISION:= 9999
 GIT_HASH:= "not_on_git"
 endif
 OR_TOOLS_VERSION := $(OR_TOOLS_MAJOR).$(OR_TOOLS_MINOR).$(GIT_REVISION)

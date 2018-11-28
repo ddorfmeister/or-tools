@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -243,7 +243,7 @@ int Run() {
     // really use it for any other purpose, we comply.
     if (response.status() == CpSolverStatus::FEASIBLE) return 10;
     if (response.status() == CpSolverStatus::INFEASIBLE) return 20;
-    return 0;
+    return EXIT_SUCCESS;
   }
 
   if (FLAGS_strict_validity) {
@@ -419,7 +419,7 @@ int Run() {
   // really use it for any other purpose, we comply.
   if (result == SatSolver::FEASIBLE) return 10;
   if (result == SatSolver::INFEASIBLE) return 20;
-  return 0;
+  return EXIT_SUCCESS;
 }
 
 }  // namespace

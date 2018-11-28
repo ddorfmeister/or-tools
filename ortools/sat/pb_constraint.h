@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -471,8 +471,8 @@ class UpperBoundedLinearConstraint {
   // This is used for duplicate detection.
   int64 hash() const { return hash_; }
 
-  // This is used to get statistics of the number of literals inspected by a
-  // Propagate() call.
+  // This is used to get statistics of the number of literals inspected by
+  // a Propagate() call.
   int already_propagated_end() const { return already_propagated_end_; }
 
  private:
@@ -497,8 +497,8 @@ class UpperBoundedLinearConstraint {
 
   // In the internal representation, we merge the terms with the same
   // coefficient.
-  // - literals_ contains all the literal of the constraint sorted by increasing
-  //   coefficients.
+  // - literals_ contains all the literal of the constraint sorted by
+  //   increasing coefficients.
   // - coeffs_ contains unique increasing coefficients.
   // - starts_[i] is the index in literals_ of the first literal with
   //   coefficient coeffs_[i].

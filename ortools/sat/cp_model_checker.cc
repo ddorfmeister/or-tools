@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -316,6 +316,14 @@ class ConstraintChecker {
     return true;
   }
 
+  bool AtMostOneConstraintIsFeasible(const ConstraintProto& ct) {
+    int num_true_literals = 0;
+    for (const int lit : ct.at_most_one().literals()) {
+      if (LiteralIsTrue(lit)) ++num_true_literals;
+    }
+    return num_true_literals <= 1;
+  }
+
   bool BoolXorConstraintIsFeasible(const ConstraintProto& ct) {
     int sum = 0;
     for (const int lit : ct.bool_xor().literals()) {
@@ -324,7 +332,6 @@ class ConstraintChecker {
     return sum == 1;
   }
 
-  // TODO(user): deal with integer overflows.
   bool LinearConstraintIsFeasible(const ConstraintProto& ct) {
     int64 sum = 0;
     const int num_variables = ct.linear().coeffs_size();
@@ -729,6 +736,9 @@ bool SolutionIsFeasible(const CpModelProto& model,
         break;
       case ConstraintProto::ConstraintCase::kBoolAnd:
         is_feasible = checker.BoolAndConstraintIsFeasible(ct);
+        break;
+      case ConstraintProto::ConstraintCase::kAtMostOne:
+        is_feasible = checker.AtMostOneConstraintIsFeasible(ct);
         break;
       case ConstraintProto::ConstraintCase::kBoolXor:
         is_feasible = checker.BoolAndConstraintIsFeasible(ct);

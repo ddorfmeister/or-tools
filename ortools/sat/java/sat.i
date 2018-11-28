@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -50,11 +50,13 @@ PROTO2_RETURN(operations_research::sat::CpSolverResponse,
 %rename (solveWithParametersAndSolutionCallback) operations_research::sat::SatHelper::SolveWithParametersAndSolutionCallback;
 %rename (modelStats) operations_research::sat::SatHelper::ModelStats;
 %rename (solverResponseStats) operations_research::sat::SatHelper::SolverResponseStats;
+%rename (validateModel) operations_research::sat::SatHelper::ValidateModel;
 
 // We use directors for the solution callback.
 %feature("director") operations_research::sat::SolutionCallback;
 
 %unignore operations_research::sat::SolutionCallback;
+%unignore operations_research::sat::SolutionCallback::~SolutionCallback;
 %rename (bestObjectiveBound) operations_research::sat::SolutionCallback::BestObjectiveBound;
 %rename (numBinaryPropagations) operations_research::sat::SolutionCallback::NumBinaryPropagations;
 %rename (numBooleans) operations_research::sat::SolutionCallback::NumBooleans;

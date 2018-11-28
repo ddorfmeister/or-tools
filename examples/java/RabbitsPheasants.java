@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -28,25 +28,22 @@ public class RabbitsPheasants {
     System.loadLibrary("jniortools");
   }
 
-
   /**
    * Solves the rabbits + pheasants problem.  We are seing 20 heads
    * and 56 legs. How many rabbits and how many pheasants are we thus
    * seeing?
    */
   private static void solve(boolean traceSearch) {
-    ConstraintSolverParameters parameters =
-        ConstraintSolverParameters.newBuilder()
-            .mergeFrom(Solver.defaultSolverParameters())
-            .setTraceSearch(traceSearch)
-            .build();
+    ConstraintSolverParameters parameters = ConstraintSolverParameters.newBuilder()
+                                                .mergeFrom(Solver.defaultSolverParameters())
+                                                .setTraceSearch(traceSearch)
+                                                .build();
     Solver solver = new Solver("RabbitsPheasants", parameters);
     IntVar rabbits = solver.makeIntVar(0, 100, "rabbits");
     IntVar pheasants = solver.makeIntVar(0, 100, "pheasants");
     solver.addConstraint(solver.makeEquality(solver.makeSum(rabbits, pheasants), 20));
-    solver.addConstraint(
-        solver.makeEquality(
-            solver.makeSum(solver.makeProd(rabbits, 4), solver.makeProd(pheasants, 2)), 56));
+    solver.addConstraint(solver.makeEquality(
+        solver.makeSum(solver.makeProd(rabbits, 4), solver.makeProd(pheasants, 2)), 56));
     DecisionBuilder db =
         solver.makePhase(rabbits, pheasants, Solver.CHOOSE_FIRST_UNBOUND, Solver.ASSIGN_MIN_VALUE);
     solver.newSearch(db);

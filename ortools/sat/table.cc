@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -147,6 +147,14 @@ std::function<void(Model*)> TableConstraint(
       }
     }
 
+    if (new_tuples.empty()) {
+      model->GetOrCreate<SatSolver>()->NotifyThatModelIsUnsat();
+      return;
+    }
+
+    // Remove duplicates if any.
+    gtl::STLSortAndRemoveDuplicates(&new_tuples);
+
     // Create one Boolean variable per tuple to indicate if it can still be
     // selected or not. Note that we don't enforce exactly one tuple to be
     // selected because these variables are just used by this constraint, so
@@ -155,10 +163,18 @@ std::function<void(Model*)> TableConstraint(
     // TODO(user): If a value in one column is unique, we don't need to create a
     // new BooleanVariable corresponding to this line since we can use the one
     // corresponding to this value in that column.
+    //
+    // Note that if there is just one tuple, there is no need to create such
+    // variables since they are not used.
     std::vector<Literal> tuple_literals;
     tuple_literals.reserve(new_tuples.size());
-    for (int i = 0; i < new_tuples.size(); ++i) {
+    if (new_tuples.size() == 2) {
       tuple_literals.emplace_back(model->Add(NewBooleanVariable()), true);
+      tuple_literals.emplace_back(tuple_literals[0].Negated());
+    } else if (new_tuples.size() > 2) {
+      for (int i = 0; i < new_tuples.size(); ++i) {
+        tuple_literals.emplace_back(model->Add(NewBooleanVariable()), true);
+      }
     }
 
     // Fully encode the variables using all the values appearing in the tuples.
@@ -394,9 +410,6 @@ std::function<void(Model*)> TransitionConstraint(
                                            : IntegerValue(transition[2]));
       }
 
-      // Exactly one tuple literal is true.
-      model->Add(ExactlyOneConstraint(tuple_literals));
-
       // Fully instantiate vars[time].
       // Tricky: because we started adding constraints that can propagate, the
       // possible values returned by encoding might not contains all the value
@@ -434,18 +447,18 @@ std::function<void(Model*)> TransitionConstraint(
           out_encoding[s.front()] = Literal(var, true);
           out_encoding[s.back()] = Literal(var, false);
         } else if (s.size() > 1) {
-          std::vector<Literal> state_literals;
           for (const IntegerValue state : s) {
             const Literal l = Literal(model->Add(NewBooleanVariable()), true);
             out_encoding[state] = l;
-            state_literals.push_back(l);
           }
-          // Exactly one state literal is true.
-          model->Add(ExactlyOneConstraint(state_literals));
         }
       }
 
       // Now we link everything together.
+      //
+      // Note that we do not need the ExactlyOneConstraint(tuple_literals)
+      // because it is already implicitely encoded since we have exactly one
+      // transition value.
       if (!in_encoding.empty()) {
         ProcessOneColumn(tuple_literals, in_states, in_encoding, model);
       }

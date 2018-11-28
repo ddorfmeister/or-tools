@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -22,19 +22,20 @@ import com.google.ortools.linearsolver.MPVariable;
  */
 
 public class LinearProgramming {
-  static { System.loadLibrary("jniortools"); }
+  static {
+    System.loadLibrary("jniortools");
+  }
 
-  private static MPSolver createSolver (String solverType) {
+  private static MPSolver createSolver(String solverType) {
     try {
-      return new MPSolver("LinearProgrammingExample",
-                          MPSolver.OptimizationProblemType.valueOf(solverType));
+      return new MPSolver(
+          "LinearProgrammingExample", MPSolver.OptimizationProblemType.valueOf(solverType));
     } catch (java.lang.IllegalArgumentException e) {
       return null;
     }
   }
 
-  private static void runLinearProgrammingExample(String solverType,
-                                                  boolean printModel) {
+  private static void runLinearProgrammingExample(String solverType, boolean printModel) {
     MPSolver solver = createSolver(solverType);
     if (solver == null) {
       System.out.println("Could not create solver " + solverType);
@@ -91,7 +92,7 @@ public class LinearProgramming {
     // others than GLOP_LINEAR_PROGRAMMING, this is highly recommended!).
     if (!solver.verifySolution(/*tolerance=*/1e-7, /*logErrors=*/true)) {
       System.err.println("The solution returned by the solver violated the"
-                         + " problem constraints by at least 1e-7");
+          + " problem constraints by at least 1e-7");
       return;
     }
 

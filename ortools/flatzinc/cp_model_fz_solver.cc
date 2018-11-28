@@ -1,4 +1,4 @@
-// Copyright 2010-2017 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -224,7 +224,8 @@ void CpModelProtoWithMapping::FillConstraint(const fz::Constraint& fz_ct,
     FillAMinusBInDomain({kint64min, -1}, fz_ct, ct);
   } else if (fz_ct.type == "bool_gt" || fz_ct.type == "int_gt") {
     FillAMinusBInDomain({1, kint64max}, fz_ct, ct);
-  } else if (fz_ct.type == "bool_eq" || fz_ct.type == "int_eq" || fz_ct.type == "bool2int") {
+  } else if (fz_ct.type == "bool_eq" || fz_ct.type == "int_eq" || 
+             fz_ct.type == "bool2int") {
     FillAMinusBInDomain({0, 0}, fz_ct, ct);
   } else if (fz_ct.type == "bool_ne" || fz_ct.type == "bool_not" ||
              fz_ct.type == "int_ne") {

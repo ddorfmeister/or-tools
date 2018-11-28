@@ -30,18 +30,21 @@ RUN apt-get update -qq \
 && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Dotnet Install
-# note: package "apt-transport-https" is needed by deb command see below
 RUN apt-get update -qq \
 && apt-get install -yq apt-transport-https \
 && wget -q https://packages.microsoft.com/config/ubuntu/14.04/packages-microsoft-prod.deb \
 && dpkg -i packages-microsoft-prod.deb \
-&& apt-get update \
+&& apt-get update -qq \
 && apt-get install -yq dotnet-sdk-2.1 \
 && apt-get clean \
 && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 ENV TZ=America/Los_Angeles
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Copy the snk key
+COPY or-tools.snk /root/or-tools.snk
+ENV DOTNET_SNK=/root/or-tools.snk
 
 ################
 ##  OR-TOOLS  ##
