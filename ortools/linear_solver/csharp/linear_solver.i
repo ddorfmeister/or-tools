@@ -124,6 +124,7 @@ class MPSolutionResponse;
 %unignore operations_research::MPSolver::LookupConstraintOrNull;
 %unignore operations_research::MPSolver::LookupVariableOrNull;
 %unignore operations_research::MPSolver::SolverVersion;
+%unignore operations_research::MPSolver::IsMIP;
 
 // Expose very advanced parts of the MPSolver API. For expert users only.
 %unignore operations_research::MPSolver::ComputeConstraintActivities;
