@@ -15,7 +15,11 @@
 
 #include "ortools/linear_solver/linear_solver.h"
 
-#if !defined(_MSC_VER)
+#if defined(_MSC_VER)
+#define NOMINMAX
+#include <windows.h>
+#undef DeleteFile
+#else
 #include <unistd.h>
 #endif
 
@@ -1499,8 +1503,10 @@ bool MPSolverInterface::SetSolverSpecificParametersAsString(
   if (parameters.empty()) return true;
 
   std::string extension = ValidFileExtensionForParameterFile();
+  std::string temp_path;
 #if defined(__linux)
   int32 tid = static_cast<int32>(pthread_self());
+  temp_path = "/temp/";
 #else   // defined(__linux__)
   int32 tid = 123;
 #endif  // defined(__linux__)
@@ -1508,11 +1514,16 @@ bool MPSolverInterface::SetSolverSpecificParametersAsString(
   int32 pid = static_cast<int32>(getpid());
 #else   // _MSC_VER
   int32 pid = 456;
+
+  TCHAR lpTempPathBuffer[MAX_PATH];
+  DWORD dwRetVal = GetTempPath(MAX_PATH, lpTempPathBuffer);
+  temp_path = lpTempPathBuffer;
 #endif  // _MSC_VER
   int64 now = absl::GetCurrentTimeNanos();
+
   std::string filename =
-      absl::StrFormat("/tmp/parameters-tempfile-%x-%d-%llx%s", tid, pid, now,
-                      extension.c_str());
+      absl::StrFormat("%sparameters-tempfile-%x-%d-%llx%s", temp_path.c_str(),
+                      tid, pid, now, extension.c_str());
   bool no_error_so_far = true;
   if (no_error_so_far) {
     no_error_so_far = FileSetContents(filename, parameters).ok();

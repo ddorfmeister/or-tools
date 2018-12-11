@@ -171,6 +171,7 @@ $(OR_TOOLS_LIBS): \
  $(DEPENDENCIES_LNK) \
  $(LDFLAGS)
 ifdef WINDOWS_SCIP_DIR
+	-$(MKDIR) $(BIN_DIR)
 	$(COPY) $(WINDOWS_SCIP_DIR)$Sbin$Sscip.dll $(BIN_DIR)
 endif
 

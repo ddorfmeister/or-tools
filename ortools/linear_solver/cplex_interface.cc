@@ -125,6 +125,15 @@ class CplexInterface : public MPSolverInterface {
 
   virtual std::string SolverVersion() const;
 
+  virtual bool InterruptSolve() {
+    int terminate = 1;
+    if (mEnv != nullptr) {
+      int status = CPXXsetterminate(mEnv, &terminate);
+      return status == 0;
+    }
+    return true;
+  }
+
   virtual void *underlying_solver() { return reinterpret_cast<void *>(mLp); }
 
   virtual double ComputeExactConditionNumber() const {
@@ -272,6 +281,7 @@ class CplexInterface : public MPSolverInterface {
   std::function<int(CPXENVptr, char const*)> CPXXreadcopyparam;
   std::function<int(CPXENVptr, int, double)> CPXXsetdblparam;
   std::function<int(CPXENVptr, int, CPXINT)> CPXXsetintparam;
+  std::function<int(CPXENVptr, volatile int*)> CPXXsetterminate;
   std::function<int(CPXCENVptr, CPXCLPptr, int*, int*, int*, int*)>
       CPXXsolninfo;
   std::function<CPXCCHARptr(CPXCENVptr)> CPXXversion;
@@ -340,6 +350,7 @@ CplexInterface::CplexInterface(MPSolver *const solver, bool mip)
     lib_->GetFunction(&CPXXreadcopyparam, "CPXLreadcopyparam");
     lib_->GetFunction(&CPXXsetdblparam, "CPXLsetdblparam");
     lib_->GetFunction(&CPXXsetintparam, "CPXLsetintparam");
+    lib_->GetFunction(&CPXXsetterminate, "CPXLsetterminate");
     lib_->GetFunction(&CPXXsolninfo, "CPXLsolninfo");
     lib_->GetFunction(&CPXXversion, "CPXLversion");
     lib_->GetFunction(&CPXXversionnumber, "CPXLversionnumber");
@@ -1230,6 +1241,9 @@ MPSolver::ResultStatus CplexInterface::Solve(MPSolverParameters const &param) {
 
   WallTimer timer;
   timer.Start();
+  
+  // Reset termination signal
+  CHECK_STATUS(CPXXsetterminate(mEnv, nullptr));
 
   // Set incrementality
   MPSolverParameters::IncrementalityValues const inc =

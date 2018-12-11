@@ -42,6 +42,7 @@ extern "C" {
 
 namespace {
 std::string library_name;
+bool interrupt;
 }  // namespace
 
 namespace operations_research {
@@ -83,6 +84,13 @@ void GLPKGatherInformationCallback(glp_tree* tree, void* info) {
     auto glp_ios_tree_size =
         lib.GetFunction<void(glp_tree*, int*, int*, int*)>(
           NAMEOF(glp_ios_tree_size));
+    auto glp_ios_terminate =
+        lib.GetFunction<void(glp_tree*)>(NAMEOF(glp_ios_terminate));
+
+    if (interrupt) {
+      glp_ios_terminate(tree);
+      interrupt = false;
+    }
 
     switch (glp_ios_reason(tree)) {
       // The best bound and the number of nodes change only when GLPK
@@ -188,6 +196,11 @@ class GLPKInterface : public MPSolverInterface {
     return absl::StrFormat("GLPK %s", glp_version());
   }
 
+  bool InterruptSolve() override {
+    interrupt = true;
+    return true;
+  }
+
   void* underlying_solver() override { return reinterpret_cast<void*>(lp_); }
 
   double ComputeExactConditionNumber() const override;
@@ -242,8 +255,8 @@ class GLPKInterface : public MPSolverInterface {
   std::function<void(glp_prob*, int)> glp_adv_basis;
   std::function<int(glp_prob*)> glp_bf_exists;
   std::function<glp_prob*(void)> glp_create_prob;
-  std::function<void(glp_prob*)> glp_delete_prob;
   std::function<int(glp_prob*)> glp_factorize;
+  std::function<int(void)> glp_free_env;
   std::function<void(glp_prob*, double[])> glp_ftran;
   std::function<int(glp_prob*, int)> glp_get_bhead;
   std::function<double(glp_prob*, int)> glp_get_col_dual;
@@ -262,10 +275,6 @@ class GLPKInterface : public MPSolverInterface {
   std::function<void(glp_iocp*)> glp_init_iocp;
   std::function<void(glp_smcp*)> glp_init_smcp;
   std::function<int(glp_prob*, const glp_iocp*)> glp_intopt;
-  std::function<int(glp_tree*)> glp_ios_best_node;
-  std::function<double(glp_tree*, int)> glp_ios_node_bound;
-  std::function<int(glp_tree*)> glp_ios_reason;
-  std::function<void(glp_tree*, int*, int*, int*)> glp_ios_tree_size;
   std::function<void(glp_prob*, int, const int[], const int[], const double[])> glp_load_matrix;
   std::function<double(glp_prob*, int)> glp_mip_col_val;
   std::function<double(glp_prob*)> glp_mip_obj_val;
@@ -305,8 +314,8 @@ GLPKInterface::GLPKInterface(MPSolver* const solver, bool mip)
     lib_->GetFunction(&glp_adv_basis, NAMEOF(glp_adv_basis));
     lib_->GetFunction(&glp_bf_exists, NAMEOF(glp_bf_exists));
     lib_->GetFunction(&glp_create_prob, NAMEOF(glp_create_prob));
-    lib_->GetFunction(&glp_delete_prob, NAMEOF(glp_delete_prob));
     lib_->GetFunction(&glp_factorize, NAMEOF(glp_factorize));
+    lib_->GetFunction(&glp_free_env, NAMEOF(glp_free_env));
     lib_->GetFunction(&glp_ftran, NAMEOF(glp_ftran));
     lib_->GetFunction(&glp_get_bhead, NAMEOF(glp_get_bhead));
     lib_->GetFunction(&glp_get_col_dual, NAMEOF(glp_get_col_dual));
@@ -325,10 +334,6 @@ GLPKInterface::GLPKInterface(MPSolver* const solver, bool mip)
     lib_->GetFunction(&glp_init_iocp, NAMEOF(glp_init_iocp));
     lib_->GetFunction(&glp_init_smcp, NAMEOF(glp_init_smcp));
     lib_->GetFunction(&glp_intopt, NAMEOF(glp_intopt));
-    lib_->GetFunction(&glp_ios_best_node, NAMEOF(glp_ios_best_node));
-    lib_->GetFunction(&glp_ios_node_bound, NAMEOF(glp_ios_node_bound));
-    lib_->GetFunction(&glp_ios_reason, NAMEOF(glp_ios_reason));
-    lib_->GetFunction(&glp_ios_tree_size, NAMEOF(glp_ios_tree_size));
     lib_->GetFunction(&glp_load_matrix, NAMEOF(glp_load_matrix));
     lib_->GetFunction(&glp_mip_col_val, NAMEOF(glp_mip_col_val));
     lib_->GetFunction(&glp_mip_obj_val, NAMEOF(glp_mip_obj_val));
@@ -361,14 +366,14 @@ GLPKInterface::GLPKInterface(MPSolver* const solver, bool mip)
 // Frees the LP memory allocations.
 GLPKInterface::~GLPKInterface() {
   CHECK(lp_ != nullptr);
-  glp_delete_prob(lp_);
+  glp_free_env();
   lp_ = nullptr;
   delete lib_;
 }
 
 void GLPKInterface::Reset() {
   CHECK(lp_ != nullptr);
-  glp_delete_prob(lp_);
+  glp_free_env();
   lp_ = glp_create_prob();
   glp_set_prob_name(lp_, solver_->name_.c_str());
   glp_set_obj_dir(lp_, maximize_ ? GLP_MAX : GLP_MIN);
