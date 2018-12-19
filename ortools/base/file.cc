@@ -25,6 +25,8 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <fstream>
+#include <iostream>
 
 #include "ortools/base/file.h"
 #include "ortools/base/logging.h"
@@ -207,10 +209,24 @@ class NoOpErrorCollector : public google::protobuf::io::ErrorCollector {
 bool ReadFileToProto(const absl::string_view& file_name,
                      google::protobuf::Message* proto) {
   std::string str;
-  if (!ReadFileToString(file_name, &str)) {
+  // if (!ReadFileToString(file_name, &str)) {
+  //   LOG(INFO) << "Could not read " << file_name;
+  //   return false;
+  // }
+
+  /// WORKAROUND: ReadFileToString does not work (on Windows)
+  file_name.CopyToString(&str);
+  std::ifstream file(str, std::ios::binary);
+  std::stringstream buffer;
+  buffer << file.rdbuf();
+  if (file.bad() || file.fail()) {
     LOG(INFO) << "Could not read " << file_name;
     return false;
   }
+  str = buffer.str();
+  file.close();
+  ///
+
   // Attempt to decode ASCII before deciding binary. Do it in this order because
   // it is much harder for a binary encoding to happen to be a valid ASCII
   // encoding than the other way around. For instance "index: 1\n" is a valid

@@ -227,9 +227,9 @@ GurobiInterface::GurobiInterface(MPSolver* const solver, bool mip)
   try {
     std::string library_name =
 #if defined(_MSC_VER)
-    "gurobi80.dll";
+    "gurobi81.dll";
 #elif defined(__GNUC__)
-    "libgurobi80.so";
+    "libgurobi81.so";
 #endif
     if (!solver_->library_name_.empty()) {
       library_name = solver_->library_name_;

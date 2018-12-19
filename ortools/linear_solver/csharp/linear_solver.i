@@ -34,6 +34,7 @@
 %{
 #include "ortools/linear_solver/linear_solver.h"
 #include "ortools/linear_solver/linear_solver.pb.h"
+#include "ortools/util/file_util.h"
 %}
 
 // We need to forward-declare the proto here, so that the PROTO_* macros
@@ -43,6 +44,8 @@ namespace operations_research {
 class MPModelProto;
 class MPModelRequest;
 class MPSolutionResponse;
+enum MPSolverResponseStatus;
+enum class ProtoWriteFormat;
 }  // namespace operations_research
 
 // Allow partial C# classes. That way, we can put our C# code extension in C#
@@ -125,6 +128,9 @@ class MPSolutionResponse;
 %unignore operations_research::MPSolver::LookupVariableOrNull;
 %unignore operations_research::MPSolver::SolverVersion;
 %unignore operations_research::MPSolver::IsMIP;
+%unignore operations_research::MPSolver::ImportModelFromMpsFormat;
+%unignore operations_research::MPSolver::ImportModelFromProtoFormat;
+%unignore operations_research::MPSolver::ExportModelAsProtoFormat;
 
 // Expose very advanced parts of the MPSolver API. For expert users only.
 %unignore operations_research::MPSolver::ComputeConstraintActivities;
@@ -238,6 +244,27 @@ class MPSolutionResponse;
 %unignore operations_research::MPSolverParameters::kDefaultDualTolerance;
 %unignore operations_research::MPSolverParameters::kDefaultPresolve;
 %unignore operations_research::MPSolverParameters::kDefaultIncrementality;
+
+// MPSolverResponseStatus
+%unignore operations_research::MPSolverResponseStatus;
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_OPTIMAL;
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_FEASIBLE;
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_INFEASIBLE;
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_UNBOUNDED;
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_ABNORMAL;
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_NOT_SOLVED;
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_MODEL_IS_VALID;
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_UNKNOWN_STATUS;
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_MODEL_INVALID;
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_MODEL_INVALID_SOLUTION_HINT;
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_MODEL_INVALID_SOLVER_PARAMETERS;
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_SOLVER_TYPE_UNAVAILABLE;
+
+// ProtoWriteFormat
+%unignore operations_research::ProtoWriteFormat;
+%unignore operations_research::ProtoWriteFormat::kProtoText;
+%unignore operations_research::ProtoWriteFormat::kProtoBinary;
+%unignore operations_research::ProtoWriteFormat::kJson;
 
 %include "ortools/linear_solver/linear_solver.h"
 

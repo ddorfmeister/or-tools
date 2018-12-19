@@ -46,6 +46,11 @@
 #include "ortools/linear_solver/model_validator.h"
 #include "ortools/util/fp_utils.h"
 
+#include "ortools/lp_data/lp_data.h"
+#include "ortools/lp_data/mps_reader.h"
+#include "ortools/lp_data/proto_utils.h"
+
+
 DEFINE_bool(verify_solution, false,
             "Systematically verify the solution when calling Solve()"
             ", and change the return value of Solve() to ABNORMAL if"
@@ -513,6 +518,92 @@ MPConstraint* MPSolver::LookupConstraintOrNull(
 }
 
 // ----- Methods using protocol buffers -----
+
+MPSolverResponseStatus MPSolver::ImportModelFromMpsFormat(
+    const std::string& file_name, const bool forced_format,
+    const bool fixed_format) {
+  // Load the problem into an MPModelProto.
+  MPModelProto model_proto;
+  MPModelRequest request_proto;
+  glop::LinearProgram linear_program_fixed;
+  glop::LinearProgram linear_program_free;
+  glop::MPSReader mps_reader;
+  mps_reader.set_log_errors(forced_format);
+
+  bool fixed_read =
+      (!forced_format || fixed_format) &&
+      mps_reader.LoadFileWithMode(file_name, false, &linear_program_fixed);
+  const bool free_read =
+      (!forced_format || !fixed_format) &&
+      mps_reader.LoadFileWithMode(file_name, true, &linear_program_free);
+  if (!fixed_read && !free_read) {
+    LOG(ERROR) << "Error while parsing the mps file '" << file_name << "' "
+               << "Use the forced_format parameter to see the errors.";
+    return MPSolverResponseStatus::MPSOLVER_ABNORMAL;
+  }     
+  
+  if (fixed_read && free_read) {
+    if (linear_program_fixed.name() != linear_program_free.name()) {
+      LOG(INFO) << "Name of the model differs between fixed and free forms. "
+                << "Fallbacking to free form.";
+      fixed_read = false;
+    }
+  }
+
+  if (!fixed_read) {
+    LOG(INFO) << "Read file in free format.";
+    LinearProgramToMPModelProto(linear_program_free, &model_proto);
+  } else {
+    LOG(INFO) << "Read file in fixed format.";
+    LinearProgramToMPModelProto(linear_program_fixed, &model_proto);
+  }
+
+  // Load the proto into the solver.
+  std::string error_message;
+
+  const MPSolverResponseStatus status =
+      LoadModelFromProto(model_proto, &error_message);
+
+  if (!error_message.empty())
+    LOG(ERROR) << error_message;
+
+  return status;
+}
+
+MPSolverResponseStatus MPSolver::ImportModelFromProtoFormat(
+    const std::string& file_name) {
+  // Load the problem into an MPModelProto.
+  MPModelProto model_proto;
+  file::ReadFileToProto(file_name, &model_proto);
+
+  const bool is_model_proto = model_proto.variable_size() > 0;
+  if (!is_model_proto) {
+    LOG(ERROR) << "Failed to parse '" << file_name
+               << "' as an MPModelProto or an MPModelRequest.";
+    return MPSolverResponseStatus::MPSOLVER_ABNORMAL;
+  } else {
+    CHECK(is_model_proto);
+    LOG(INFO) << "Read input proto as an MPModelProto.";
+  }
+
+  // Load the proto into the solver.
+  std::string error_message;
+
+  const MPSolverResponseStatus status =
+      LoadModelFromProto(model_proto, &error_message);
+
+  if (!error_message.empty())
+    LOG(ERROR) << error_message;
+
+  return status;
+}
+
+bool MPSolver::ExportModelAsProtoFormat(const std::string& file_name,
+    ProtoWriteFormat write_format) const {
+  MPModelProto proto;
+  ExportModelToProto(&proto);
+  return WriteProtoToFile(file_name, proto, write_format, false);
+}
 
 MPSolverResponseStatus MPSolver::LoadModelFromProto(
     const MPModelProto& input_model, std::string* error_message) {

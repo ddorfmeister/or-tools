@@ -160,6 +160,7 @@
 #include "ortools/linear_solver/linear_expr.h"
 #include "ortools/linear_solver/linear_solver.pb.h"
 #include "ortools/port/proto_utils.h"
+#include "ortools/util/file_util.h"
 
 namespace operations_research {
 
@@ -392,6 +393,13 @@ class MPSolver {
   bool InterruptSolve();
 
   // ----- Methods using protocol buffers -----
+
+  MPSolverResponseStatus ImportModelFromMpsFormat(const std::string& file_name,
+      const bool forced_format = false, const bool fixed_format = false);
+  MPSolverResponseStatus ImportModelFromProtoFormat(
+      const std::string& file_name);
+  bool ExportModelAsProtoFormat(const std::string& file_name,
+    ProtoWriteFormat write_format) const;
 
   // Loads model from protocol buffer. Returns MPSOLVER_MODEL_IS_VALID if the
   // model is valid, and another status otherwise (currently only
