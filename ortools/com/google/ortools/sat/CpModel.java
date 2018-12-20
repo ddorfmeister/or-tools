@@ -1181,11 +1181,10 @@ public class CpModel {
     return SatHelper.modelStats(model());
   }
 
-    /** Returns a non empty string if the model is invalid. */
-    public String validate() {
-      return SatHelper.validateModel(model());
-    }
-  
+  /** Returns a non empty string explaining the issue if the model is invalid. */
+  public String validate() {
+    return SatHelper.validateModel(model());
+  }
 
   // Helpers
 

@@ -20,18 +20,16 @@
 #include <limits>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 #include <functional>
 
+#include "absl/memory/memory.h"
+#include "absl/strings/str_format.h"
 #include "ortools/base/commandlineflags.h"
 #include "ortools/base/hash.h"
 #include "ortools/base/integral_types.h"
 #include "ortools/base/logging.h"
-#include "ortools/base/memory.h"
-#include "ortools/base/port.h"
-#include "ortools/base/stringprintf.h"
 #include "ortools/base/timer.h"
 #include "ortools/base/dynamic_library.h"
 #include "ortools/linear_solver/linear_solver.h"

@@ -28,14 +28,20 @@
 // - examples/csharp/cslinearprogramming.cs
 // - examples/csharp/csintegerprogramming.cs
 
-%include "ortools/base/base.i"
+%include "enums.swg"
+%include "stdint.i"
 %include "std_vector.i"
+
+%include "ortools/base/base.i"
 
 %{
 #include "ortools/linear_solver/linear_solver.h"
 #include "ortools/linear_solver/linear_solver.pb.h"
 #include "ortools/util/file_util.h"
 %}
+
+typedef int64_t int64;
+typedef uint64_t uint64;
 
 // We need to forward-declare the proto here, so that the PROTO_* macros
 // involving them work correctly. The order matters very much: this declaration
@@ -211,60 +217,74 @@ enum class ProtoWriteFormat;
 %unignore operations_research::MPObjective::BestBound;
 
 // MPSolverParameters API. For expert users only.
-%unignore operations_research::MPSolverParameters;
-%unignore operations_research::MPSolverParameters::MPSolverParameters;
-%unignore operations_research::MPSolverParameters::DoubleParam;
-%unignore operations_research::MPSolverParameters::RELATIVE_MIP_GAP;
-%unignore operations_research::MPSolverParameters::PRIMAL_TOLERANCE;
-%unignore operations_research::MPSolverParameters::DUAL_TOLERANCE;
-%unignore operations_research::MPSolverParameters::IntegerParam;
-%unignore operations_research::MPSolverParameters::PRESOLVE;
-%unignore operations_research::MPSolverParameters::LP_ALGORITHM;
-%unignore operations_research::MPSolverParameters::INCREMENTALITY;
-%unignore operations_research::MPSolverParameters::SCALING;
-%unignore operations_research::MPSolverParameters::PresolveValues;
-%unignore operations_research::MPSolverParameters::PRESOLVE_OFF;
-%unignore operations_research::MPSolverParameters::PRESOLVE_ON;
-%unignore operations_research::MPSolverParameters::LpAlgorithmValues;
-%unignore operations_research::MPSolverParameters::DUAL;
-%unignore operations_research::MPSolverParameters::PRIMAL;
-%unignore operations_research::MPSolverParameters::BARRIER;
-%unignore operations_research::MPSolverParameters::IncrementalityValues;
-%unignore operations_research::MPSolverParameters::INCREMENTALITY_OFF;
-%unignore operations_research::MPSolverParameters::INCREMENTALITY_ON;
-%unignore operations_research::MPSolverParameters::ScalingValues;
-%unignore operations_research::MPSolverParameters::SCALING_OFF;
-%unignore operations_research::MPSolverParameters::SCALING_ON;
-%unignore operations_research::MPSolverParameters::GetDoubleParam;
-%unignore operations_research::MPSolverParameters::SetDoubleParam;
-%unignore operations_research::MPSolverParameters::GetIntegerParam;
-%unignore operations_research::MPSolverParameters::SetIntegerParam;
-%unignore operations_research::MPSolverParameters::kDefaultRelativeMipGap;
-%unignore operations_research::MPSolverParameters::kDefaultPrimalTolerance;
-%unignore operations_research::MPSolverParameters::kDefaultDualTolerance;
-%unignore operations_research::MPSolverParameters::kDefaultPresolve;
-%unignore operations_research::MPSolverParameters::kDefaultIncrementality;
+// TODO(user): unit test all of it.
 
-// MPSolverResponseStatus
-%unignore operations_research::MPSolverResponseStatus;
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_OPTIMAL;
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_FEASIBLE;
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_INFEASIBLE;
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_UNBOUNDED;
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_ABNORMAL;
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_NOT_SOLVED;
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_MODEL_IS_VALID;
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_UNKNOWN_STATUS;
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_MODEL_INVALID;
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_MODEL_INVALID_SOLUTION_HINT;
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_MODEL_INVALID_SOLVER_PARAMETERS;
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_SOLVER_TYPE_UNAVAILABLE;
+%unignore operations_research::MPSolverParameters;  // no test
+%unignore operations_research::MPSolverParameters::MPSolverParameters;  // no test
 
-// ProtoWriteFormat
-%unignore operations_research::ProtoWriteFormat;
-%unignore operations_research::ProtoWriteFormat::kProtoText;
-%unignore operations_research::ProtoWriteFormat::kProtoBinary;
-%unignore operations_research::ProtoWriteFormat::kJson;
+// Expose the MPSolverParameters::DoubleParam enum.
+%unignore operations_research::MPSolverParameters::DoubleParam;  // no test
+%unignore operations_research::MPSolverParameters::RELATIVE_MIP_GAP;  // no test
+%unignore operations_research::MPSolverParameters::PRIMAL_TOLERANCE;  // no test
+%unignore operations_research::MPSolverParameters::DUAL_TOLERANCE;  // no test
+%unignore operations_research::MPSolverParameters::GetDoubleParam;  // no test
+%unignore operations_research::MPSolverParameters::SetDoubleParam;  // no test
+%unignore operations_research::MPSolverParameters::kDefaultRelativeMipGap;  // no test
+%unignore operations_research::MPSolverParameters::kDefaultPrimalTolerance;  // no test
+%unignore operations_research::MPSolverParameters::kDefaultDualTolerance;  // no test
+
+// Expose the MPSolverParameters::IntegerParam enum.
+%unignore operations_research::MPSolverParameters::IntegerParam;  // no test
+%unignore operations_research::MPSolverParameters::PRESOLVE;  // no test
+%unignore operations_research::MPSolverParameters::LP_ALGORITHM;  // no test
+%unignore operations_research::MPSolverParameters::INCREMENTALITY;  // no test
+%unignore operations_research::MPSolverParameters::SCALING;  // no test
+%unignore operations_research::MPSolverParameters::GetIntegerParam;  // no test
+%unignore operations_research::MPSolverParameters::SetIntegerParam;  // no test
+
+// Expose the MPSolverParameters::PresolveValues enum.
+%unignore operations_research::MPSolverParameters::PresolveValues;  // no test
+%unignore operations_research::MPSolverParameters::PRESOLVE_OFF;  // no test
+%unignore operations_research::MPSolverParameters::PRESOLVE_ON;  // no test
+%unignore operations_research::MPSolverParameters::kDefaultPresolve;  // no test
+
+// Expose the MPSolverParameters::LpAlgorithmValues enum.
+%unignore operations_research::MPSolverParameters::LpAlgorithmValues;  // no test
+%unignore operations_research::MPSolverParameters::DUAL;  // no test
+%unignore operations_research::MPSolverParameters::PRIMAL;  // no test
+%unignore operations_research::MPSolverParameters::BARRIER;  // no test
+
+// Expose the MPSolverParameters::IncrementalityValues enum.
+%unignore operations_research::MPSolverParameters::IncrementalityValues;  // no test
+%unignore operations_research::MPSolverParameters::INCREMENTALITY_OFF;  // no test
+%unignore operations_research::MPSolverParameters::INCREMENTALITY_ON;  // no test
+%unignore operations_research::MPSolverParameters::kDefaultIncrementality;  // no test
+
+// Expose the MPSolverParameters::ScalingValues enum.
+%unignore operations_research::MPSolverParameters::ScalingValues;  // no test
+%unignore operations_research::MPSolverParameters::SCALING_OFF;  // no test
+%unignore operations_research::MPSolverParameters::SCALING_ON;  // no test
+
+// Expose the MPSolverResponseStatus enum.
+%unignore operations_research::MPSolverResponseStatus;  // no test
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_OPTIMAL;  // no test
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_FEASIBLE;  // no test
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_INFEASIBLE;  // no test
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_UNBOUNDED;  // no test
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_ABNORMAL;  // no test
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_NOT_SOLVED;  // no test
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_MODEL_IS_VALID;  // no test
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_UNKNOWN_STATUS;  // no test
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_MODEL_INVALID;  // no test
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_MODEL_INVALID_SOLUTION_HINT;  // no test
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_MODEL_INVALID_SOLVER_PARAMETERS;  // no test
+%unignore operations_research::MPSolverResponseStatus::MPSOLVER_SOLVER_TYPE_UNAVAILABLE;  // no test
+
+// Expose the ProtoWriteFormat enum.
+%unignore operations_research::ProtoWriteFormat;  // no test
+%unignore operations_research::ProtoWriteFormat::kProtoText;  // no test
+%unignore operations_research::ProtoWriteFormat::kProtoBinary;  // no test
+%unignore operations_research::ProtoWriteFormat::kJson;  // no test
 
 %include "ortools/linear_solver/linear_solver.h"
 

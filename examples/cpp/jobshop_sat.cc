@@ -11,18 +11,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <math.h>
+#include <cmath>
 
 #include <algorithm>
 #include <vector>
 
+#include "absl/strings/match.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/wrappers.pb.h"
 #include "ortools/base/commandlineflags.h"
-#include "ortools/base/join.h"
 #include "ortools/base/logging.h"
-#include "ortools/base/stringpiece_utils.h"
-#include "ortools/base/strutil.h"
 #include "ortools/base/timer.h"
 #include "ortools/data/jobshop_scheduling.pb.h"
 #include "ortools/data/jobshop_scheduling_parser.h"
@@ -55,14 +53,13 @@ int64 ComputeHorizon(const JsspInputProblem& problem) {
   int64 max_earliest_start = 0;
   for (const Job& job : problem.jobs()) {
     if (job.has_latest_end()) {
-      max_latest_end =
-          std::max<int64>(max_latest_end, job.latest_end().value());
+      max_latest_end = std::max(max_latest_end, job.latest_end().value());
     } else {
       max_latest_end = kint64max;
     }
     if (job.has_earliest_start()) {
       max_earliest_start =
-          std::max<int64>(max_earliest_start, job.earliest_start().value());
+          std::max(max_earliest_start, job.earliest_start().value());
     }
     for (const Task& task : job.tasks()) {
       int64 max_duration = 0;
@@ -81,8 +78,8 @@ int64 ComputeHorizon(const JsspInputProblem& problem) {
     for (int i = 0; i < num_jobs; ++i) {
       int64 max_transition = 0;
       for (int j = 0; j < num_jobs; ++j) {
-        max_transition = std::max<int64>(
-            max_transition, matrix.transition_time(i * num_jobs + j));
+        max_transition =
+            std::max(max_transition, matrix.transition_time(i * num_jobs + j));
       }
       sum_of_transitions += max_transition;
     }
@@ -141,8 +138,8 @@ void Solve(const JsspInputProblem& problem) {
       int64 min_duration = task.duration(0);
       int64 max_duration = task.duration(0);
       for (int i = 1; i < num_alternatives; ++i) {
-        min_duration = std::min<int64>(min_duration, task.duration(i));
-        max_duration = std::max<int64>(max_duration, task.duration(i));
+        min_duration = std::min(min_duration, task.duration(i));
+        max_duration = std::max(max_duration, task.duration(i));
       }
       const IntVar start = cp_model.NewIntVar(Domain(hard_start, hard_end));
       const IntVar duration =
@@ -376,7 +373,7 @@ void Solve(const JsspInputProblem& problem) {
 }  // namespace operations_research
 
 int main(int argc, char** argv) {
-  base::SetFlag(&FLAGS_logtostderr, true);
+  absl::SetFlag(&FLAGS_logtostderr, true);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   if (FLAGS_input.empty()) {
     LOG(FATAL) << "Please supply a data file with --input=";

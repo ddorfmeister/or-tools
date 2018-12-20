@@ -15,8 +15,8 @@
 
 #include <algorithm>
 #include <memory>
-#include <unordered_map>
 
+#include "absl/container/flat_hash_map.h"
 #include "ortools/base/stl_util.h"
 #include "ortools/util/sorted_interval_list.h"
 
@@ -51,8 +51,6 @@ IntegerSumLE::IntegerSumLE(const std::vector<Literal>& enforcement_literals,
     literal_reason_.push_back(literal.Negated());
   }
 
-  index_in_integer_reason_.resize(vars_.size());
-
   // Initialize the reversible numbers.
   rev_num_fixed_vars_ = 0;
   rev_lb_fixed_vars_ = IntegerValue(0);
@@ -60,13 +58,13 @@ IntegerSumLE::IntegerSumLE(const std::vector<Literal>& enforcement_literals,
 
 void IntegerSumLE::FillIntegerReason() {
   integer_reason_.clear();
-  for (int i = 0; i < vars_.size(); ++i) {
+  reason_coeffs_.clear();
+  const int num_vars = vars_.size();
+  for (int i = 0; i < num_vars; ++i) {
     const IntegerVariable var = vars_[i];
-    if (integer_trail_->VariableLowerBoundIsFromLevelZero(var)) {
-      index_in_integer_reason_[i] = -1;
-    } else {
-      index_in_integer_reason_[i] = integer_reason_.size();
+    if (!integer_trail_->VariableLowerBoundIsFromLevelZero(var)) {
       integer_reason_.push_back(integer_trail_->LowerBoundAsLiteral(var));
+      reason_coeffs_.push_back(coeffs_[i]);
     }
   }
 }
@@ -93,7 +91,8 @@ bool IntegerSumLE::Propagate() {
 
   // Compute the new lower bound and update the reversible structures.
   IntegerValue lb_unfixed_vars = IntegerValue(0);
-  for (int i = rev_num_fixed_vars_; i < vars_.size(); ++i) {
+  const int num_vars = vars_.size();
+  for (int i = rev_num_fixed_vars_; i < num_vars; ++i) {
     const IntegerVariable var = vars_[i];
     const IntegerValue coeff = coeffs_[i];
     const IntegerValue lb = integer_trail_->LowerBound(var);
@@ -114,12 +113,8 @@ bool IntegerSumLE::Propagate() {
   const IntegerValue slack = upper_bound_ - new_lb;
   if (slack < 0) {
     FillIntegerReason();
-    std::vector<IntegerValue> coeffs;
-    for (int i = 0; i < vars_.size(); ++i) {
-      if (index_in_integer_reason_[i] == -1) continue;
-      coeffs.push_back(coeffs_[i]);
-    }
-    integer_trail_->RelaxLinearReason(-slack - 1, coeffs, &integer_reason_);
+    integer_trail_->RelaxLinearReason(-slack - 1, reason_coeffs_,
+                                      &integer_reason_);
 
     if (num_unassigned_enforcement_literal == 1) {
       // Propagate the only non-true literal to false.
@@ -135,51 +130,47 @@ bool IntegerSumLE::Propagate() {
   // We can only propagate more if all the enforcement literals are true.
   if (num_unassigned_enforcement_literal > 0) return true;
 
-  // The integer_reason_ will only be filled on the first push.
-  bool first_push = true;
-
-  // The lower bound of all the variables minus one can be used to update the
+  // The lower bound of all the variables except one can be used to update the
   // upper bound of the last one.
-  int trail_index_with_same_reason = -1;
-  for (int i = rev_num_fixed_vars_; i < vars_.size(); ++i) {
+  for (int i = rev_num_fixed_vars_; i < num_vars; ++i) {
     const IntegerVariable var = vars_[i];
     const IntegerValue coeff = coeffs_[i];
     const IntegerValue var_slack =
         integer_trail_->UpperBound(var) - integer_trail_->LowerBound(var);
     if (var_slack * coeff > slack) {
-      if (first_push) {
-        first_push = false;
-        FillIntegerReason();
-      }
-
-      // We need to remove the entry index from the reason temporarily.
-      IntegerLiteral saved;
-      const int index = index_in_integer_reason_[i];
-      if (index >= 0) {
-        saved = integer_reason_[index];
-        integer_reason_[index] = integer_reason_.back();
-        integer_reason_.pop_back();
-      } else if (trail_index_with_same_reason == -1) {
-        // All the push for which index < 0 share the same reason, so we save
-        // the index of the first push so that we do not need to copy the reason
-        // of the next ones.
-        trail_index_with_same_reason = integer_trail_->Index();
-      }
-
-      const IntegerValue new_ub =
-          integer_trail_->LowerBound(var) + slack / coeff;
-      if (!integer_trail_->Enqueue(IntegerLiteral::LowerOrEqual(var, new_ub),
-                                   literal_reason_, integer_reason_,
-                                   index >= 0 ? integer_trail_->Index()
-                                              : trail_index_with_same_reason)) {
+      const IntegerValue div = slack / coeff;
+      const IntegerValue new_ub = integer_trail_->LowerBound(var) + div;
+      const IntegerValue propagation_slack = (div + 1) * coeff - slack - 1;
+      if (!integer_trail_->Enqueue(
+              IntegerLiteral::LowerOrEqual(var, new_ub),
+              /*lazy_reason=*/[this, propagation_slack](
+                                  IntegerLiteral i_lit, int trail_index,
+                                  std::vector<Literal>* literal_reason,
+                                  std::vector<int>* trail_indices_reason) {
+                *literal_reason = literal_reason_;
+                trail_indices_reason->clear();
+                reason_coeffs_.clear();
+                const int size = vars_.size();
+                for (int i = 0; i < size; ++i) {
+                  const IntegerVariable var = vars_[i];
+                  if (PositiveVariable(var) == PositiveVariable(i_lit.var)) {
+                    continue;
+                  }
+                  const int index = integer_trail_->FindTrailIndexOfVarBefore(
+                      var, trail_index);
+                  if (index >= 0) {
+                    trail_indices_reason->push_back(index);
+                    if (propagation_slack > 0) {
+                      reason_coeffs_.push_back(coeffs_[i]);
+                    }
+                  }
+                }
+                if (propagation_slack > 0) {
+                  integer_trail_->RelaxLinearReason(
+                      propagation_slack, reason_coeffs_, trail_indices_reason);
+                }
+              })) {
         return false;
-      }
-
-      // Restore integer_reason_. Note that this is not needed if we returned
-      // false above.
-      if (index >= 0) {
-        integer_reason_.push_back(saved);
-        std::swap(integer_reason_[index], integer_reason_.back());
       }
     }
   }
@@ -531,7 +522,7 @@ std::function<void(Model*)> IsOneOf(IntegerVariable var,
     CHECK(!values.empty());
     CHECK_EQ(values.size(), selectors.size());
     std::vector<int64> unique_values;
-    std::unordered_map<int64, std::vector<Literal>> value_to_selector;
+    absl::flat_hash_map<int64, std::vector<Literal>> value_to_selector;
     for (int i = 0; i < values.size(); ++i) {
       unique_values.push_back(values[i].value());
       value_to_selector[values[i].value()].push_back(selectors[i]);

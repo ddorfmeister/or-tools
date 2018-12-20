@@ -13,7 +13,7 @@
 
 #include <sys/stat.h>
 #include <sys/types.h>
-#include "ortools/base/join.h"
+#include "absl/strings/str_cat.h"
 #if defined(_MSC_VER)
 #include <io.h>
 #define access _access
@@ -215,7 +215,7 @@ bool ReadFileToProto(const absl::string_view& file_name,
   // }
 
   /// WORKAROUND: ReadFileToString does not work (on Windows)
-  file_name.CopyToString(&str);
+  str = std::string(file_name);
   std::ifstream file(str, std::ios::binary);
   std::stringstream buffer;
   buffer << file.rdbuf();

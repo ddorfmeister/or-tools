@@ -19,18 +19,16 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 #include <algorithm>
 #include <functional>
 
+#include "absl/strings/str_format.h"
 #include "ortools/base/commandlineflags.h"
 #include "ortools/base/integral_types.h"
 #include "ortools/base/logging.h"
 #include "ortools/base/map_util.h"
-#include "ortools/base/port.h"
-#include "ortools/base/stringprintf.h"
 #include "ortools/base/timer.h"
 #include "ortools/base/dynamic_library.h"
 #include "ortools/linear_solver/linear_solver.h"
@@ -742,7 +740,8 @@ MPSolver::ResultStatus GurobiInterface::Solve(const MPSolverParameters& param) {
   ExtractModel();
   // Sync solver.
   CheckedGurobiCall(GRBupdatemodel(model_));
-  VLOG(1) << absl::StrFormat("Model built in %.3f seconds.", timer.Get());
+  VLOG(1) << absl::StrFormat("Model built in %s.",
+                             absl::FormatDuration(timer.GetDuration()));
 
   // Set solution hints if any.
   for (const std::pair<MPVariable*, double>& p : solver_->solution_hint_) {
@@ -773,7 +772,8 @@ MPSolver::ResultStatus GurobiInterface::Solve(const MPSolverParameters& param) {
   if (status) {
     VLOG(1) << "Failed to optimize MIP." << GRBgeterrormsg(env_);
   } else {
-    VLOG(1) << absl::StrFormat("Solved in %.3f seconds.", timer.Get());
+    VLOG(1) << absl::StrFormat("Solved in %s.",
+                               absl::FormatDuration(timer.GetDuration()));
   }
 
   // Get the status.

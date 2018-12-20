@@ -109,7 +109,7 @@ endif
 
 SWIG_INC = \
  $(GFLAGS_SWIG) $(GLOG_SWIG) $(PROTOBUF_SWIG) $(COIN_SWIG) \
- -DUSE_GLOP -DUSE_BOP -DMUST_USE_RESULT \
+ -DUSE_GLOP -DUSE_BOP -DABSL_MUST_USE_RESULT \
  $(GLPK_SWIG) $(SCIP_SWIG) $(GUROBI_SWIG) $(CPLEX_SWIG)
 
 # Compilation flags
@@ -178,8 +178,8 @@ ifeq ($(PLATFORM),MACOSX)
   DYNAMIC_LD = clang++ -dynamiclib -undefined dynamic_lookup \
  -Wl,-search_paths_first \
  -Wl,-headerpad_max_install_names \
- -current_version $(OR_TOOLS_SHORT_VERSION) \
- -compatibility_version $(OR_TOOLS_SHORT_VERSION)
+ -current_version $(OR_TOOLS_MAJOR).$(OR_TOOLS_MINOR) \
+ -compatibility_version $(OR_TOOLS_MAJOR).$(OR_TOOLS_MINOR)
   DYNAMIC_LDFLAGS = -Wl,-rpath,\"@loader_path\"
 
   ZLIB_LNK = -lz
@@ -210,8 +210,8 @@ ifeq ($(PLATFORM),MACOSX)
   LINK_CMD = clang++ -dynamiclib \
  -Wl,-search_paths_first \
  -Wl,-headerpad_max_install_names \
- -current_version $(OR_TOOLS_SHORT_VERSION) \
- -compatibility_version $(OR_TOOLS_SHORT_VERSION)
+ -current_version $(OR_TOOLS_MAJOR).$(OR_TOOLS_MINOR) \
+ -compatibility_version $(OR_TOOLS_MAJOR).$(OR_TOOLS_MINOR)
   PRE_LIB = -L$(OR_ROOT)lib -l
   POST_LIB =
   LINK_FLAGS = \

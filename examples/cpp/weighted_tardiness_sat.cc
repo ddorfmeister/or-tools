@@ -15,15 +15,14 @@
 #include <numeric>
 #include <vector>
 
+#include "absl/strings/match.h"
+#include "absl/strings/numbers.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
 #include "google/protobuf/text_format.h"
 #include "ortools/base/commandlineflags.h"
 #include "ortools/base/filelineiter.h"
-#include "ortools/base/join.h"
 #include "ortools/base/logging.h"
-#include "ortools/base/numbers.h"
-#include "ortools/base/split.h"
-#include "ortools/base/strtoint.h"
-#include "ortools/base/strutil.h"
 #include "ortools/base/timer.h"
 #include "ortools/sat/cp_model.h"
 #include "ortools/sat/model.h"
@@ -64,7 +63,7 @@ void Solve(const std::vector<int64>& durations,
     int64 next_cost;
     for (int j = 0; j < num_tasks; ++j) {
       if (is_taken[j]) continue;
-      const int64 cost = weights[j] * std::max(0LL, end - due_dates[j]);
+      const int64 cost = weights[j] * std::max<int64>(0, end - due_dates[j]);
       if (next_task == -1 || cost < next_cost) {
         next_task = j;
         next_cost = cost;
@@ -97,8 +96,8 @@ void Solve(const std::vector<int64>& durations,
     if (due_dates[i] == 0) {
       tardiness_vars[i] = task_ends[i];
     } else {
-      tardiness_vars[i] =
-          cp_model.NewIntVar(Domain(0, std::max(0LL, horizon - due_dates[i])));
+      tardiness_vars[i] = cp_model.NewIntVar(
+          Domain(0, std::max<int64>(0, horizon - due_dates[i])));
 
       // tardiness_vars >= end - due_date
       cp_model.AddGreaterOrEqual(tardiness_vars[i],
@@ -218,7 +217,8 @@ void ParseAndSolve() {
   for (const std::string& line : FileLines(FLAGS_input)) {
     entries = absl::StrSplit(line, ' ', absl::SkipEmpty());
     for (const std::string& entry : entries) {
-      numbers.push_back(atoi32(entry));
+      numbers.push_back(0);
+      CHECK(absl::SimpleAtoi(entry, &numbers.back()));
     }
   }
 
@@ -246,7 +246,7 @@ void ParseAndSolve() {
 }  // namespace operations_research
 
 int main(int argc, char** argv) {
-  base::SetFlag(&FLAGS_logtostderr, true);
+  absl::SetFlag(&FLAGS_logtostderr, true);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   if (FLAGS_input.empty()) {
     LOG(FATAL) << "Please supply a data file with --input=";

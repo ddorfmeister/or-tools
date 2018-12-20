@@ -137,7 +137,27 @@ $(OBJ_DIR)/swig: | $(OBJ_DIR)
 ###############
 ##  CPP LIB  ##
 ###############
+# build from: $> grep "pb\.h:" makefiles/Makefile.gen.mk
+PROTO_DEPS = \
+$(GEN_DIR)/ortools/util/optional_boolean.pb.h \
+$(GEN_DIR)/ortools/data/jobshop_scheduling.pb.h \
+$(GEN_DIR)/ortools/data/rcpsp.pb.h \
+$(GEN_DIR)/ortools/glop/parameters.pb.h \
+$(GEN_DIR)/ortools/graph/flow_problem.pb.h \
+$(GEN_DIR)/ortools/sat/boolean_problem.pb.h \
+$(GEN_DIR)/ortools/sat/cp_model.pb.h \
+$(GEN_DIR)/ortools/sat/sat_parameters.pb.h \
+$(GEN_DIR)/ortools/bop/bop_parameters.pb.h \
+$(GEN_DIR)/ortools/linear_solver/linear_solver.pb.h \
+$(GEN_DIR)/ortools/constraint_solver/assignment.pb.h \
+$(GEN_DIR)/ortools/constraint_solver/demon_profiler.pb.h \
+$(GEN_DIR)/ortools/constraint_solver/routing_enums.pb.h \
+$(GEN_DIR)/ortools/constraint_solver/routing_parameters.pb.h \
+$(GEN_DIR)/ortools/constraint_solver/search_limit.pb.h \
+$(GEN_DIR)/ortools/constraint_solver/solver_parameters.pb.h
 include $(OR_ROOT)makefiles/Makefile.gen.mk
+
+all_protos: $(PROTO_DEPS)
 
 # OR Tools unique library.
 $(OR_TOOLS_LIBS): \
@@ -389,15 +409,12 @@ check_cc_pimpl: \
 
 .PHONY: test_cc_tests # Build and Run all C++ Tests (located in ortools/examples/tests)
 test_cc_tests: \
- rcc_ac4r_table_test \
  rcc_boolean_test \
  rcc_bug_fz1 \
  rcc_cpp11_test \
  rcc_forbidden_intervals_test \
- rcc_gcc_test \
  rcc_issue57 \
- rcc_min_max_test \
- rcc_visitor_test
+ rcc_min_max_test
 #	$(MAKE) rcc_issue173 # error: too long
 
 .PHONY: test_cc_contrib # Build and Run all C++ Contrib (located in ortools/examples/contrib)
@@ -412,12 +429,10 @@ test_cc_cpp: \
  rcc_cvrptw_with_refueling \
  rcc_cvrptw_with_resources \
  rcc_cvrptw_with_stop_times_and_resources \
- rcc_dobble_ls \
  rcc_flow_api \
  rcc_linear_assignment_api \
  rcc_linear_solver_protocol_buffers \
  rcc_magic_square_sat \
- rcc_mps_driver \
  rcc_nqueens \
  rcc_random_tsp \
  rcc_slitherlink_sat \
@@ -427,11 +442,17 @@ test_cc_cpp: \
  SOURCE=examples/cpp/dimacs_assignment.cc \
  ARGS=examples/data/dimacs/assignment/small.asn
 	$(MAKE) run \
+ SOURCE=examples/cpp/dobble_ls.cc \
+ ARGS="--time_limit_in_ms=10000"
+	$(MAKE) run \
  SOURCE=examples/cpp/golomb_sat.cc \
  ARGS="--size=5"
 	$(MAKE) run \
  SOURCE=examples/cpp/jobshop_sat.cc \
  ARGS="--input=examples/data/jobshop/ft06"
+	$(MAKE) run \
+ SOURCE=examples/cpp/mps_driver.cc \
+ ARGS="--input examples/data/tests/test.mps"
 	$(MAKE) run \
  SOURCE=examples/cpp/network_routing_sat.cc \
  ARGS="--clients=10 --backbones=5 --demands=10 --traffic_min=5 --traffic_max=10 --min_client_degree=2 --max_client_degree=5 --min_backbone_degree=3 --max_backbone_degree=5 --max_capacity=20 --fixed_charge_cost=10"
@@ -441,7 +462,9 @@ test_cc_cpp: \
 #	$(MAKE) run SOURCE=examples/cpp/frequency_assignment_problem.cc  # Need data file
 #	$(MAKE) run SOURCE=examples/cpp/pdptw.cc ARGS="--pdp_file examples/data/pdptw/LC1_2_1.txt" # Fails on windows...
 	$(MAKE) run SOURCE=examples/cpp/shift_minimization_sat.cc  ARGS="--input examples/data/shift_scheduling/minimization/data_1_23_40_66.dat"
-#	$(MAKE) run SOURCE=examples/cpp/solve.cc  # Need data file
+	$(MAKE) run \
+ SOURCE=examples/cpp/solve.cc \
+ ARGS="--input examples/data/tests/test2.mps"
 
 .PHONY: test_cc_pimpl
 test_cc_pimpl: \
@@ -599,6 +622,10 @@ ifeq ($(UNIX_PROTOBUF_DIR),$(OR_TOOLS_TOP)/dependencies/install)
 	$(COPYREC) $(subst /,$S,$(_PROTOBUF_LIB_DIR))$Slibproto* "$(DESTDIR)$(prefix)$Slib"
 	$(COPYREC) dependencies$Sinstall$Sbin$Sprotoc "$(DESTDIR)$(prefix)$Sbin"
 endif
+ifeq ($(UNIX_ABSL_DIR),$(OR_TOOLS_TOP)/dependencies/install)
+	$(COPYREC) dependencies$Sinstall$Sinclude$Sabsl "$(DESTDIR)$(prefix)$Sinclude"
+	$(COPYREC) $(subst /,$S,$(_ABSL_LIB_DIR))$Slibabsl* "$(DESTDIR)$(prefix)$Slib"
+endif
 ifeq ($(UNIX_CBC_DIR),$(OR_TOOLS_TOP)/dependencies/install)
 	$(COPYREC) dependencies$Sinstall$Sinclude$Scoin "$(DESTDIR)$(prefix)$Sinclude"
 	$(COPYREC) dependencies$Sinstall$Slib$SlibCbc* "$(DESTDIR)$(prefix)$Slib"
@@ -615,19 +642,23 @@ ifeq ($(WINDOWS_ZLIB_DIR),$(OR_ROOT)dependencies/install)
 endif
 ifeq ($(WINDOWS_GFLAGS_DIR),$(OR_ROOT)dependencies/install)
 	-$(MKDIR) "$(DESTDIR)$(prefix)$Sinclude$Sgflags"
-	$(COPYREC) dependencies$Sinstall$Sinclude$Sgflags "$(DESTDIR)$(prefix)$Sinclude$Sgflags"
+	$(COPYREC) /E /Y dependencies$Sinstall$Sinclude$Sgflags "$(DESTDIR)$(prefix)$Sinclude$Sgflags"
 endif
 ifeq ($(WINDOWS_GLOG_DIR),$(OR_ROOT)dependencies/install)
 	-$(MKDIR) "$(DESTDIR)$(prefix)$Sinclude$Sglog"
-	$(COPYREC) dependencies$Sinstall$Sinclude$Sglog "$(DESTDIR)$(prefix)$Sinclude$Sglog"
+	$(COPYREC) /E /Y dependencies$Sinstall$Sinclude$Sglog "$(DESTDIR)$(prefix)$Sinclude$Sglog"
 endif
 ifeq ($(WINDOWS_PROTOBUF_DIR),$(OR_ROOT)dependencies/install)
 	-$(MKDIR) "$(DESTDIR)$(prefix)$Sinclude$Sgoogle"
-	$(COPYREC) dependencies$Sinstall$Sinclude$Sgoogle "$(DESTDIR)$(prefix)$Sinclude$Sgoogle" /E
+	$(COPYREC) /E /Y dependencies$Sinstall$Sinclude$Sgoogle "$(DESTDIR)$(prefix)$Sinclude$Sgoogle"
+endif
+ifeq ($(WINDOWS_ABSL_DIR),$(OR_ROOT)dependencies/install)
+	-$(MKDIR) "$(DESTDIR)$(prefix)$Sinclude$Sabsl"
+	$(COPYREC) /E /Y dependencies$Sinstall$Sinclude$Sabsl "$(DESTDIR)$(prefix)$Sinclude$Sabsl"
 endif
 ifeq ($(WINDOWS_CBC_DIR),$(OR_ROOT)dependencies/install)
 	-$(MKDIR) "$(DESTDIR)$(prefix)$Sinclude$Scoin"
-	$(COPYREC) dependencies$Sinstall$Sinclude$Scoin "$(DESTDIR)$(prefix)$Sinclude$Scoin"
+	$(COPYREC) /E /Y dependencies$Sinstall$Sinclude$Scoin "$(DESTDIR)$(prefix)$Sinclude$Scoin"
 endif
 
 install_doc:

@@ -62,11 +62,6 @@ std::function<void(Model*)> NewFeasibleSolutionObserver(
 void SetSynchronizationFunction(std::function<CpSolverResponse()> f,
                                 Model* model);
 
-// Wait until this function returns with the objective value of the current
-// best solution.
-void SetObjectiveSynchronizationFunction(std::function<double()> f,
-                                         Model* model);
-
 // Allows to change the default parameters with
 //   model->Add(NewSatParameters(parameters_as_string_or_proto))
 // before calling SolveCpModel().

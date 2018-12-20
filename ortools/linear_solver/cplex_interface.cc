@@ -19,9 +19,9 @@
 #include <memory>
 #include <functional>
 
+#include "absl/strings/str_format.h"
 #include "ortools/base/integral_types.h"
 #include "ortools/base/logging.h"
-#include "ortools/base/stringprintf.h"
 #include "ortools/base/timer.h"
 #include "ortools/base/dynamic_library.h"
 #include "ortools/linear_solver/linear_solver.h"

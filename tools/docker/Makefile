@@ -39,6 +39,9 @@ $(info branch: $(OR_TOOLS_BRANCH))
 include ../../Version.txt
 OR_TOOLS_PATCH := $(shell git rev-list --count HEAD)
 OR_TOOLS_VERSION := $(OR_TOOLS_MAJOR).$(OR_TOOLS_MINOR).$(OR_TOOLS_PATCH)
+ifdef PRE_RELEASE
+OR_TOOLS_VERSION := $(OR_TOOLS_VERSION)-beta
+endif
 $(info version: $(OR_TOOLS_VERSION))
 DOCKER_RUN_CMD := docker run --rm -it --init
 ifdef NOCACHE
@@ -80,7 +83,7 @@ manylinux1-pypi: export/python/docker.tar
 		"/root/build/build-manylinux1.sh /root/src /root/build /export"
 
 bash_python: export/python/docker.tar
-	$(DOCKER_RUN_CMD) or-tools:python /bin/bash
+	$(DOCKER_RUN_CMD) -v `pwd`/export:/export or-tools:python /bin/bash
 
 export/python: | export
 	-mkdir $@
@@ -127,17 +130,17 @@ export/%/docker.tar: %.Dockerfile ../Makefile.cc.java.dotnet ../../makefiles ../
 # Run container using devel docker image
 .PHONY: bash_centos-7 bash_debian-9 bash_ubuntu-14.04 bash_ubuntu-16.04 bash_ubuntu-18.04 bash_ubuntu-18.10
 bash_centos-7: export/centos-7/docker.tar
-	$(DOCKER_RUN_CMD) or-tools_centos-7:devel /bin/bash
+	$(DOCKER_RUN_CMD) -v `pwd`/export:/export or-tools_centos-7:devel /bin/bash
 bash_debian-9: export/debian-9/docker.tar
-	$(DOCKER_RUN_CMD) or-tools_debian-9:devel /bin/bash
+	$(DOCKER_RUN_CMD) -v `pwd`/export:/export or-tools_debian-9:devel /bin/bash
 bash_ubuntu-14.04: export/ubuntu-14.04/docker.tar
-	$(DOCKER_RUN_CMD) or-tools_ubuntu-14.04:devel /bin/bash
+	$(DOCKER_RUN_CMD) -v `pwd`/export:/export or-tools_ubuntu-14.04:devel /bin/bash
 bash_ubuntu-16.04: export/ubuntu-16.04/docker.tar
-	$(DOCKER_RUN_CMD) or-tools_ubuntu-16.04:devel /bin/bash
+	$(DOCKER_RUN_CMD) -v `pwd`/export:/export or-tools_ubuntu-16.04:devel /bin/bash
 bash_ubuntu-18.04: export/ubuntu-18.04/docker.tar
-	$(DOCKER_RUN_CMD) or-tools_ubuntu-18.04:devel /bin/bash
+	$(DOCKER_RUN_CMD) -v `pwd`/export:/export or-tools_ubuntu-18.04:devel /bin/bash
 bash_ubuntu-18.10: export/ubuntu-18.10/docker.tar
-	$(DOCKER_RUN_CMD) or-tools_ubuntu-18.10:devel /bin/bash
+	$(DOCKER_RUN_CMD) -v `pwd`/export:/export or-tools_ubuntu-18.10:devel /bin/bash
 
 # Build Archives
 .PHONY: archives \
@@ -399,28 +402,6 @@ distclean: clean
 	-docker container rm $$(docker container ls --all -q)
 	-docker image rm $$(docker image ls --all -q)
 	rm -rf export
-
-#################
-##  DEPRECATED ##
-#################
-.PHONY: images
-images: \
-	ubuntu-14.04-image \
-	ubuntu-16.04-image \
-	ubuntu-18.04-image \
-	ubuntu-18.10-image \
-	centos-7-image \
-	debian-9-image \
-	manylinux1-image
-
-.PHONY: images-no-cache
-images-no-cache: \
-	ubuntu-14.04-image-no-cache \
-	ubuntu-16.04-image-no-cache \
-	ubuntu-18.04-image-no-cache \
-	ubuntu-18.10-image-no-cache \
-	centos-7-image-no-cache \
-	debian-9-image-no-cache
 
 ##########################
 ##  MINIZINC CHALLENGE  ##

@@ -14,38 +14,40 @@
 #include "ortools/sat/cp_model_solver.h"
 
 #include <algorithm>
+#include <atomic>
 #include <functional>
 #include <limits>
 #include <map>
 #include <memory>
 #include <set>
-#include <type_traits>
-#include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
-#include "ortools/base/commandlineflags.h"
-#include "ortools/base/logging.h"
-#include "ortools/base/mutex.h"
-#include "ortools/base/stringprintf.h"
-#include "ortools/base/timer.h"
 #if !defined(__PORTABLE_PLATFORM__)
+#include "absl/synchronization/notification.h"
 #include "google/protobuf/text_format.h"
-#include "ortools/base/notification.h"
+#include "ortools/base/file.h"
 #endif  // __PORTABLE_PLATFORM__
-#include "ortools/base/cleanup.h"
+
+#include "absl/container/flat_hash_set.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
+#include "absl/synchronization/mutex.h"
+#include "ortools/base/commandlineflags.h"
 #include "ortools/base/int_type.h"
 #include "ortools/base/int_type_indexed_vector.h"
-#include "ortools/base/iterator_adaptors.h"
-#include "ortools/base/join.h"
+#include "ortools/base/integral_types.h"
+#include "ortools/base/logging.h"
 #include "ortools/base/map_util.h"
-#include "ortools/base/memory.h"
-#include "ortools/base/stl_util.h"
+#include "ortools/base/status.h"
+#include "ortools/base/threadpool.h"
+#include "ortools/base/timer.h"
 #include "ortools/graph/connectivity.h"
 #include "ortools/port/proto_utils.h"
 #include "ortools/sat/circuit.h"
 #include "ortools/sat/clause.h"
+#include "ortools/sat/cp_model.pb.h"
 #include "ortools/sat/cp_model_checker.h"
 #include "ortools/sat/cp_model_expand.h"
 #include "ortools/sat/cp_model_lns.h"
@@ -67,6 +69,7 @@
 #include "ortools/sat/sat_base.h"
 #include "ortools/sat/sat_solver.h"
 #include "ortools/sat/simplification.h"
+#include "ortools/sat/synchronization.h"
 #include "ortools/util/sorted_interval_list.h"
 #include "ortools/util/time_limit.h"
 
@@ -78,6 +81,8 @@ DEFINE_string(cp_model_dump_file, "",
 DEFINE_string(cp_model_params, "",
               "This is interpreted as a text SatParameters proto. The "
               "specified fields will override the normal ones for all solves.");
+DEFINE_bool(cp_model_dump_lns_problems, false,
+            "Useful to debug presolve issues on LNS fragments");
 
 DEFINE_string(
     drat_output, "",
@@ -93,6 +98,10 @@ DEFINE_double(max_drat_time_in_seconds, std::numeric_limits<double>::infinity(),
               "Maximum time in seconds to check the DRAT proof. This will only "
               "be used is the drat_check flag is enabled.");
 
+DEFINE_bool(cp_model_check_intermediate_solutions, false,
+            "When true, all intermediate solutions found by the solver will be "
+            "checked. This can be expensive, therefore it is off by default.");
+
 namespace operations_research {
 namespace sat {
 
@@ -103,16 +112,17 @@ namespace {
 // fixed point.
 // =============================================================================
 
-// This class is designed to be used over a ModelWithMapping, it will ask the
-// underlying Model to fully encode IntegerVariables of the model using
-// constraint processors PropagateConstraintXXX(), until no such processor wants
-// to fully encode a variable. The workflow is to call PropagateFullEncoding()
-// on a set of constraints, then ComputeFixedPoint() to launch the fixed point
-// computation.
+// This class is will ask the underlying Model to fully encode IntegerVariables
+// of the model using constraint processors PropagateConstraintXXX(), until no
+// such processor wants to fully encode a variable. The workflow is to call
+// PropagateFullEncoding() on a set of constraints, then ComputeFixedPoint() to
+// launch the fixed point computation.
 class FullEncodingFixedPointComputer {
  public:
-  explicit FullEncodingFixedPointComputer(ModelWithMapping* model)
-      : model_(model), integer_encoder_(model->GetOrCreate<IntegerEncoder>()) {}
+  explicit FullEncodingFixedPointComputer(Model* model)
+      : model_(model),
+        mapping_(model->GetOrCreate<CpModelMapping>()),
+        integer_encoder_(model->GetOrCreate<IntegerEncoder>()) {}
 
   // We only add to the propagation queue variable that are fully encoded.
   // Note that if a variable was already added once, we never add it again.
@@ -181,14 +191,14 @@ class FullEncodingFixedPointComputer {
 
   // Note that we always consider a fixed variable to be fully encoded here.
   const bool IsFullyEncoded(int v) {
-    const IntegerVariable variable = model_->Integer(v);
+    const IntegerVariable variable = mapping_->Integer(v);
     return model_->Get(IsFixed(variable)) ||
            integer_encoder_->VariableIsFullyEncoded(variable);
   }
 
   void FullyEncode(int v) {
     v = PositiveRef(v);
-    const IntegerVariable variable = model_->Integer(v);
+    const IntegerVariable variable = mapping_->Integer(v);
     if (!model_->Get(IsFixed(variable))) {
       model_->Add(FullyEncodeVariable(variable));
     }
@@ -201,15 +211,16 @@ class FullEncodingFixedPointComputer {
   bool PropagateInverse(const ConstraintProto* ct);
   bool PropagateLinear(const ConstraintProto* ct);
 
-  ModelWithMapping* model_;
+  Model* model_;
+  CpModelMapping* mapping_;
   IntegerEncoder* integer_encoder_;
 
   std::vector<bool> variable_was_added_in_to_propagate_;
   std::vector<int> variables_to_propagate_;
   std::vector<std::vector<const ConstraintProto*>> variable_watchers_;
 
-  std::unordered_set<const ConstraintProto*> constraint_is_finished_;
-  std::unordered_set<const ConstraintProto*> constraint_is_registered_;
+  absl::flat_hash_set<const ConstraintProto*> constraint_is_finished_;
+  absl::flat_hash_set<const ConstraintProto*> constraint_is_registered_;
 };
 
 bool FullEncodingFixedPointComputer::PropagateElement(
@@ -282,7 +293,7 @@ bool FullEncodingFixedPointComputer::PropagateLinear(
   // If some domain is too large, abort;
   if (!gtl::ContainsKey(constraint_is_registered_, ct)) {
     for (const int v : ct->linear().vars()) {
-      const IntegerVariable var = model_->Integer(v);
+      const IntegerVariable var = mapping_->Integer(v);
       IntegerTrail* integer_trail = model_->GetOrCreate<IntegerTrail>();
       const IntegerValue lb = integer_trail->LowerBound(var);
       const IntegerValue ub = integer_trail->UpperBound(var);
@@ -400,11 +411,11 @@ std::string CpModelStats(const CpModelProto& model_proto) {
                          " in objective)")
           : "";
   absl::StrAppend(&result, "#Variables: ", model_proto.variables_size(),
-                  objective_string.c_str(), "\n");
+                  objective_string, "\n");
   if (num_vars_per_domains.size() < 50) {
     for (const auto& entry : num_vars_per_domains) {
       const std::string temp = absl::StrCat(" - ", entry.second, " in ",
-                                            entry.first.ToString().c_str(), "\n");
+                                            entry.first.ToString(), "\n");
       absl::StrAppend(&result, Summarize(temp));
     }
   } else {
@@ -414,8 +425,8 @@ std::string CpModelStats(const CpModelProto& model_proto) {
     for (const auto& entry : num_vars_per_domains) {
       min = std::min(min, entry.first.Min());
       max = std::max(max, entry.first.Max());
-      max_complexity = std::max(
-          max_complexity, static_cast<int64>(entry.first.intervals().size()));
+      max_complexity = std::max(max_complexity,
+                                static_cast<int64>(entry.first.NumIntervals()));
     }
     absl::StrAppend(&result, " - ", num_vars_per_domains.size(),
                     " different domains in [", min, ",", max,
@@ -486,32 +497,60 @@ std::string CpSolverResponseStats(const CpSolverResponse& response) {
 
 namespace {
 
-double ScaleObjectiveValue(const CpObjectiveProto& proto, int64 value) {
-  double result = value + proto.offset();
-  if (proto.scaling_factor() == 0) return result;
-  return proto.scaling_factor() * result;
-}
-
-void FillSolutionInResponse(const CpModelProto& model_proto,
-                            const ModelWithMapping& m,
+void FillSolutionInResponse(const CpModelProto& model_proto, const Model& model,
                             IntegerVariable objective_var,
                             CpSolverResponse* response) {
-  const std::vector<int64> solution = m.ExtractFullAssignment();
   response->set_status(CpSolverStatus::FEASIBLE);
   response->clear_solution();
   response->clear_solution_lower_bounds();
   response->clear_solution_upper_bounds();
+
+  auto* mapping = model.Get<CpModelMapping>();
+  auto* trail = model.Get<Trail>();
+  auto* integer_trail = model.Get<IntegerTrail>();
+
+  std::vector<int64> solution;
+  for (int i = 0; i < model_proto.variables_size(); ++i) {
+    if (mapping->IsInteger(i)) {
+      const IntegerVariable var = mapping->Integer(i);
+      if (integer_trail->IsCurrentlyIgnored(var)) {
+        // This variable is "ignored" so it may not be fixed, simply use
+        // the current lower bound. Any value in its domain should lead to
+        // a feasible solution.
+        solution.push_back(model.Get(LowerBound(var)));
+      } else {
+        if (model.Get(LowerBound(var)) != model.Get(UpperBound(var))) {
+          solution.clear();
+          break;
+        }
+        solution.push_back(model.Get(Value(var)));
+      }
+    } else {
+      DCHECK(mapping->IsBoolean(i));
+      const Literal literal = mapping->Literal(i);
+      if (trail->Assignment().LiteralIsAssigned(literal)) {
+        solution.push_back(model.Get(Value(literal)));
+      } else {
+        solution.clear();
+        break;
+      }
+    }
+  }
+
   if (!solution.empty()) {
-    DCHECK(SolutionIsFeasible(model_proto, solution));
+    if (DEBUG_MODE || FLAGS_cp_model_check_intermediate_solutions) {
+      // TODO(user): Checks against initial model.
+      CHECK(SolutionIsFeasible(model_proto, solution));
+    }
     for (const int64 value : solution) response->add_solution(value);
   } else {
     // Not all variables are fixed.
     // We fill instead the lb/ub of each variables.
-    const auto& assignment = m.model()->Get<Trail>()->Assignment();
+    const auto& assignment = trail->Assignment();
     for (int i = 0; i < model_proto.variables_size(); ++i) {
-      if (m.IsBoolean(i)) {
-        if (assignment.VariableIsAssigned(m.Literal(i).Variable())) {
-          const int value = m.Get(Value(m.Literal(i)));
+      if (mapping->IsBoolean(i)) {
+        if (assignment.VariableIsAssigned(mapping->Literal(i).Variable())) {
+          const int value = model.Get(Value(mapping->Literal(i)));
           response->add_solution_lower_bounds(value);
           response->add_solution_upper_bounds(value);
         } else {
@@ -519,8 +558,10 @@ void FillSolutionInResponse(const CpModelProto& model_proto,
           response->add_solution_upper_bounds(1);
         }
       } else {
-        response->add_solution_lower_bounds(m.Get(LowerBound(m.Integer(i))));
-        response->add_solution_upper_bounds(m.Get(UpperBound(m.Integer(i))));
+        response->add_solution_lower_bounds(
+            model.Get(LowerBound(mapping->Integer(i))));
+        response->add_solution_upper_bounds(
+            model.Get(UpperBound(mapping->Integer(i))));
       }
     }
   }
@@ -530,14 +571,14 @@ void FillSolutionInResponse(const CpModelProto& model_proto,
     const CpObjectiveProto& obj = model_proto.objective();
     int64 objective_value = 0;
     for (int i = 0; i < model_proto.objective().vars_size(); ++i) {
-      objective_value += model_proto.objective().coeffs(i) *
-                         m.model()->Get(LowerBound(
-                             m.Integer(model_proto.objective().vars(i))));
+      objective_value +=
+          model_proto.objective().coeffs(i) *
+          model.Get(
+              LowerBound(mapping->Integer(model_proto.objective().vars(i))));
     }
     response->set_objective_value(ScaleObjectiveValue(obj, objective_value));
-    const IntegerTrail* integer_trail = m.model()->Get<IntegerTrail>();
     response->set_best_objective_bound(ScaleObjectiveValue(
-        obj, integer_trail->LevelZeroBound(objective_var).value()));
+        obj, integer_trail->LevelZeroLowerBound(objective_var).value()));
   } else {
     response->clear_objective_value();
     response->clear_best_objective_bound();
@@ -601,40 +642,44 @@ IntegerVariable GetOrCreateVariableGreaterOrEqualToSumOf(
 //
 // TODO(user): In full generality, we could encode all the constraint as an LP.
 void TryToLinearizeConstraint(const CpModelProto& model_proto,
-                              const ConstraintProto& ct, ModelWithMapping* m,
+                              const ConstraintProto& ct, Model* m,
                               int linearization_level,
                               LinearRelaxation* relaxation) {
+  auto* mapping = m->GetOrCreate<CpModelMapping>();
   if (ct.constraint_case() == ConstraintProto::ConstraintCase::kBoolOr) {
     if (linearization_level < 2) return;
-    LinearConstraintBuilder lc(m->model(), IntegerValue(1), kMaxIntegerValue);
+    LinearConstraintBuilder lc(m, IntegerValue(1), kMaxIntegerValue);
     for (const int enforcement_ref : ct.enforcement_literal()) {
-      CHECK(lc.AddLiteralTerm(m->Literal(NegatedRef(enforcement_ref)),
+      CHECK(lc.AddLiteralTerm(mapping->Literal(NegatedRef(enforcement_ref)),
                               IntegerValue(1)));
     }
     for (const int ref : ct.bool_or().literals()) {
-      CHECK(lc.AddLiteralTerm(m->Literal(ref), IntegerValue(1)));
+      CHECK(lc.AddLiteralTerm(mapping->Literal(ref), IntegerValue(1)));
     }
     relaxation->linear_constraints.push_back(lc.Build());
   } else if (ct.constraint_case() ==
              ConstraintProto::ConstraintCase::kBoolAnd) {
+    // TODO(user): These constraints can be many, and if they are not regrouped
+    // in big at most ones, then they should probably only added lazily as cuts.
+    // Regroup this with future clique-cut separation logic.
     if (linearization_level < 2) return;
     if (!HasEnforcementLiteral(ct)) return;
     if (ct.enforcement_literal().size() == 1) {
-      const Literal enforcement = m->Literal(ct.enforcement_literal(0));
+      const Literal enforcement = mapping->Literal(ct.enforcement_literal(0));
       for (const int ref : ct.bool_and().literals()) {
         relaxation->at_most_ones.push_back(
-            {enforcement, m->Literal(ref).Negated()});
+            {enforcement, mapping->Literal(ref).Negated()});
       }
       return;
     }
     for (const int ref : ct.bool_and().literals()) {
       // Same as the clause linearization above.
-      LinearConstraintBuilder lc(m->model(), IntegerValue(1), kMaxIntegerValue);
+      LinearConstraintBuilder lc(m, IntegerValue(1), kMaxIntegerValue);
       for (const int enforcement_ref : ct.enforcement_literal()) {
-        CHECK(lc.AddLiteralTerm(m->Literal(NegatedRef(enforcement_ref)),
+        CHECK(lc.AddLiteralTerm(mapping->Literal(NegatedRef(enforcement_ref)),
                                 IntegerValue(1)));
       }
-      CHECK(lc.AddLiteralTerm(m->Literal(ref), IntegerValue(1)));
+      CHECK(lc.AddLiteralTerm(mapping->Literal(ref), IntegerValue(1)));
       relaxation->linear_constraints.push_back(lc.Build());
     }
   } else if (ct.constraint_case() ==
@@ -642,7 +687,7 @@ void TryToLinearizeConstraint(const CpModelProto& model_proto,
     if (HasEnforcementLiteral(ct)) return;
     std::vector<Literal> at_most_one;
     for (const int ref : ct.at_most_one().literals()) {
-      at_most_one.push_back(m->Literal(ref));
+      at_most_one.push_back(mapping->Literal(ref));
     }
     relaxation->at_most_ones.push_back(at_most_one);
   } else if (ct.constraint_case() == ConstraintProto::ConstraintCase::kIntMax) {
@@ -652,9 +697,9 @@ void TryToLinearizeConstraint(const CpModelProto& model_proto,
       // This deal with the corner case X = max(X, Y, Z, ..) !
       // Note that this can be presolved into X >= Y, X >= Z, ...
       if (target == var) continue;
-      LinearConstraintBuilder lc(m->model(), kMinIntegerValue, IntegerValue(0));
-      lc.AddTerm(m->Integer(var), IntegerValue(1));
-      lc.AddTerm(m->Integer(target), IntegerValue(-1));
+      LinearConstraintBuilder lc(m, kMinIntegerValue, IntegerValue(0));
+      lc.AddTerm(mapping->Integer(var), IntegerValue(1));
+      lc.AddTerm(mapping->Integer(target), IntegerValue(-1));
       relaxation->linear_constraints.push_back(lc.Build());
     }
   } else if (ct.constraint_case() == ConstraintProto::ConstraintCase::kIntMin) {
@@ -662,9 +707,9 @@ void TryToLinearizeConstraint(const CpModelProto& model_proto,
     const int target = ct.int_min().target();
     for (const int var : ct.int_min().vars()) {
       if (target == var) continue;
-      LinearConstraintBuilder lc(m->model(), kMinIntegerValue, IntegerValue(0));
-      lc.AddTerm(m->Integer(target), IntegerValue(1));
-      lc.AddTerm(m->Integer(var), IntegerValue(-1));
+      LinearConstraintBuilder lc(m, kMinIntegerValue, IntegerValue(0));
+      lc.AddTerm(mapping->Integer(target), IntegerValue(1));
+      lc.AddTerm(mapping->Integer(var), IntegerValue(-1));
       relaxation->linear_constraints.push_back(lc.Build());
     }
   } else if (ct.constraint_case() ==
@@ -678,80 +723,13 @@ void TryToLinearizeConstraint(const CpModelProto& model_proto,
     // we should probably also add x >= -y, but then this do not happen in
     // our test set.
     if (size == 2 && ct.int_prod().vars(0) == ct.int_prod().vars(1)) {
-      LinearConstraintBuilder lc(m->model(), kMinIntegerValue, IntegerValue(0));
-      lc.AddTerm(m->Integer(ct.int_prod().vars(0)), IntegerValue(1));
-      lc.AddTerm(m->Integer(target), IntegerValue(-1));
+      LinearConstraintBuilder lc(m, kMinIntegerValue, IntegerValue(0));
+      lc.AddTerm(mapping->Integer(ct.int_prod().vars(0)), IntegerValue(1));
+      lc.AddTerm(mapping->Integer(target), IntegerValue(-1));
       relaxation->linear_constraints.push_back(lc.Build());
     }
   } else if (ct.constraint_case() == ConstraintProto::ConstraintCase::kLinear) {
-    // Note that we ignore the holes in the domain.
-    //
-    // TODO(user): In LoadLinearConstraint() we already created intermediate
-    // Booleans for each disjoint interval, we should reuse them here if
-    // possible.
-    //
-    // TODO(user): process the "at most one" part of a == 1 separately?
-    const IntegerValue min = IntegerValue(ct.linear().domain(0));
-    const IntegerValue max =
-        IntegerValue(ct.linear().domain(ct.linear().domain_size() - 1));
-    if (min == kint64min && max == kint64max) return;
-
-    if (!HasEnforcementLiteral(ct)) {
-      LinearConstraintBuilder lc(m->model(), min, max);
-      for (int i = 0; i < ct.linear().vars_size(); i++) {
-        const int ref = ct.linear().vars(i);
-        const int64 coeff = ct.linear().coeffs(i);
-        lc.AddTerm(m->Integer(ref), IntegerValue(coeff));
-      }
-      relaxation->linear_constraints.push_back(lc.Build());
-      return;
-    }
-
-    // Reified version.
-    // TODO(user): support any number of enforcement literal.
-    if (ct.enforcement_literal().size() != 1) return;
-    if (linearization_level < 3) return;
-
-    // Compute the implied bounds on the linear expression.
-    IntegerValue implied_lb(0);
-    IntegerValue implied_ub(0);
-    for (int i = 0; i < ct.linear().vars_size(); i++) {
-      int ref = ct.linear().vars(i);
-      IntegerValue coeff(ct.linear().coeffs(i));
-      if (!RefIsPositive(ref)) {
-        ref = PositiveRef(ref);
-        coeff = -coeff;
-      }
-      const IntegerVariableProto& p = model_proto.variables(ref);
-      if (coeff > 0.0) {
-        implied_lb += coeff * IntegerValue(p.domain(0));
-        implied_ub += coeff * IntegerValue(p.domain(p.domain_size() - 1));
-      } else {
-        implied_lb += coeff * IntegerValue(p.domain(p.domain_size() - 1));
-        implied_ub += coeff * IntegerValue(p.domain(0));
-      }
-    }
-    const int e = ct.enforcement_literal(0);
-    if (min != kint64min) {
-      // (e => terms >= min) <=> terms >= implied_lb + e * (min - implied_lb);
-      LinearConstraintBuilder lc(m->model(), implied_lb, kMaxIntegerValue);
-      for (int i = 0; i < ct.linear().vars_size(); i++) {
-        const int ref = ct.linear().vars(i);
-        lc.AddTerm(m->Integer(ref), IntegerValue(ct.linear().coeffs(i)));
-      }
-      CHECK(lc.AddLiteralTerm(m->Literal(e), implied_lb - min));
-      relaxation->linear_constraints.push_back(lc.Build());
-    }
-    if (max != kint64max) {
-      // (e => terms <= max) <=> terms <= implied_ub + e * (max - implied_ub)
-      LinearConstraintBuilder lc(m->model(), kMinIntegerValue, implied_ub);
-      for (int i = 0; i < ct.linear().vars_size(); i++) {
-        const int ref = ct.linear().vars(i);
-        lc.AddTerm(m->Integer(ref), IntegerValue(ct.linear().coeffs(i)));
-      }
-      CHECK(lc.AddLiteralTerm(m->Literal(e), implied_ub - max));
-      relaxation->linear_constraints.push_back(lc.Build());
-    }
+    AppendLinearConstraintRelaxation(ct, linearization_level, *m, relaxation);
   } else if (ct.constraint_case() ==
              ConstraintProto::ConstraintCase::kCircuit) {
     if (HasEnforcementLiteral(ct)) return;
@@ -764,7 +742,7 @@ void TryToLinearizeConstraint(const CpModelProto& model_proto,
     std::map<int, std::vector<Literal>> incoming_arc_constraints;
     std::map<int, std::vector<Literal>> outgoing_arc_constraints;
     for (int i = 0; i < num_arcs; i++) {
-      const Literal arc = m->Literal(ct.circuit().literals(i));
+      const Literal arc = mapping->Literal(ct.circuit().literals(i));
       const int tail = ct.circuit().tails(i);
       const int head = ct.circuit().heads(i);
 
@@ -778,7 +756,7 @@ void TryToLinearizeConstraint(const CpModelProto& model_proto,
       for (const auto& entry : *node_map) {
         const std::vector<Literal>& exactly_one = entry.second;
         if (exactly_one.size() > 1) {
-          LinearConstraintBuilder at_least_one_lc(m->model(), IntegerValue(1),
+          LinearConstraintBuilder at_least_one_lc(m, IntegerValue(1),
                                                   kMaxIntegerValue);
           for (const Literal l : exactly_one) {
             CHECK(at_least_one_lc.AddLiteralTerm(l, IntegerValue(1)));
@@ -792,14 +770,14 @@ void TryToLinearizeConstraint(const CpModelProto& model_proto,
     }
   } else if (ct.constraint_case() ==
              ConstraintProto::ConstraintCase::kElement) {
-    const IntegerVariable index = m->Integer(ct.element().index());
-    const IntegerVariable target = m->Integer(ct.element().target());
-    const std::vector<IntegerVariable> vars = m->Integers(ct.element().vars());
+    const IntegerVariable index = mapping->Integer(ct.element().index());
+    const IntegerVariable target = mapping->Integer(ct.element().target());
+    const std::vector<IntegerVariable> vars =
+        mapping->Integers(ct.element().vars());
 
     // We only relax the case where all the vars are constant.
     // target = sum (index == i) * fixed_vars[i].
-    LinearConstraintBuilder constraint(m->model(), IntegerValue(0),
-                                       IntegerValue(0));
+    LinearConstraintBuilder constraint(m, IntegerValue(0), IntegerValue(0));
     constraint.AddTerm(target, IntegerValue(-1));
     IntegerTrail* integer_trail = m->GetOrCreate<IntegerTrail>();
     for (const auto literal_value : m->Add(FullyEncodeVariable((index)))) {
@@ -817,14 +795,15 @@ void TryToLinearizeConstraint(const CpModelProto& model_proto,
 }
 
 void TryToAddCutGenerators(const CpModelProto& model_proto,
-                           const ConstraintProto& ct, ModelWithMapping* m,
+                           const ConstraintProto& ct, Model* m,
                            LinearRelaxation* relaxation) {
+  auto* mapping = m->GetOrCreate<CpModelMapping>();
   if (ct.constraint_case() == ConstraintProto::ConstraintCase::kCircuit) {
     std::vector<int> tails(ct.circuit().tails().begin(),
                            ct.circuit().tails().end());
     std::vector<int> heads(ct.circuit().heads().begin(),
                            ct.circuit().heads().end());
-    std::vector<Literal> literals = m->Literals(ct.circuit().literals());
+    std::vector<Literal> literals = mapping->Literals(ct.circuit().literals());
     const int num_nodes = ReindexArcs(&tails, &heads, &literals);
 
     std::vector<IntegerVariable> vars;
@@ -845,7 +824,7 @@ void TryToAddCutGenerators(const CpModelProto& model_proto,
     auto* encoder = m->GetOrCreate<IntegerEncoder>();
     for (int i = 0; i < ct.routes().tails_size(); ++i) {
       const IntegerVariable var =
-          encoder->GetLiteralView(m->Literal(ct.routes().literals(i)));
+          encoder->GetLiteralView(mapping->Literal(ct.routes().literals(i)));
       if (var == kNoIntegerVariable) return;
 
       vars.push_back(var);
@@ -871,21 +850,22 @@ void TryToAddCutGenerators(const CpModelProto& model_proto,
 
 // Adds one LinearProgrammingConstraint per connected component of the model.
 IntegerVariable AddLPConstraints(const CpModelProto& model_proto,
-                                 int linearization_level, ModelWithMapping* m) {
+                                 int linearization_level, Model* m) {
   LinearRelaxation relaxation;
 
   // Linearize the constraints.
   IndexReferences refs;
+  auto* mapping = m->GetOrCreate<CpModelMapping>();
   auto* encoder = m->GetOrCreate<IntegerEncoder>();
   for (const auto& ct : model_proto.constraints()) {
     // We linearize fully/partially encoded variable differently, so we just
     // skip all these constraint that corresponds to these encoding.
-    if (m->ConstraintIsAlreadyLoaded(&ct)) continue;
+    if (mapping->ConstraintIsAlreadyLoaded(&ct)) continue;
 
     // Make sure the literal from a circuit constraint always have a view.
     if (ct.constraint_case() == ConstraintProto::ConstraintCase::kCircuit) {
       for (const int ref : ct.circuit().literals()) {
-        m->Add(NewIntegerVariableFromLiteral(m->Literal(ref)));
+        m->Add(NewIntegerVariableFromLiteral(mapping->Literal(ref)));
       }
     }
 
@@ -900,7 +880,7 @@ IntegerVariable AddLPConstraints(const CpModelProto& model_proto,
     AddReferencesUsedByConstraint(ct, &refs);
     bool ok = true;
     for (const int literal_ref : refs.literals) {
-      const Literal literal = m->Literal(literal_ref);
+      const Literal literal = mapping->Literal(literal_ref);
       if (encoder->GetLiteralView(literal) == kNoIntegerVariable &&
           encoder->GetLiteralView(literal.Negated()) == kNoIntegerVariable) {
         ok = false;
@@ -923,27 +903,26 @@ IntegerVariable AddLPConstraints(const CpModelProto& model_proto,
   int num_full_encoding_relaxations = 0;
   int num_partial_encoding_relaxations = 0;
   for (int i = 0; i < model_proto.variables_size(); ++i) {
-    if (m->IsBoolean(i)) continue;
+    if (mapping->IsBoolean(i)) continue;
 
-    const IntegerVariable var = m->Integer(i);
+    const IntegerVariable var = mapping->Integer(i);
     if (m->Get(IsFixed(var))) continue;
 
     // TODO(user): This different encoding for the partial variable might be
     // better (less LP constraints), but we do need more investigation to
     // decide.
     if (/* DISABLES CODE */ (false)) {
-      AppendPartialEncodingRelaxation(var, *(m->model()), &relaxation);
+      AppendPartialEncodingRelaxation(var, *m, &relaxation);
       continue;
     }
 
     if (encoder->VariableIsFullyEncoded(var)) {
-      if (AppendFullEncodingRelaxation(var, *(m->model()), &relaxation)) {
+      if (AppendFullEncodingRelaxation(var, *m, &relaxation)) {
         ++num_full_encoding_relaxations;
       }
     } else {
       const int old = relaxation.linear_constraints.size();
-      AppendPartialGreaterThanEncodingRelaxation(var, *(m->model()),
-                                                 &relaxation);
+      AppendPartialGreaterThanEncodingRelaxation(var, *m, &relaxation);
       if (relaxation.linear_constraints.size() > old) {
         ++num_partial_encoding_relaxations;
       }
@@ -956,11 +935,11 @@ IntegerVariable AddLPConstraints(const CpModelProto& model_proto,
       &relaxation.at_most_ones);
   for (const std::vector<Literal>& at_most_one : relaxation.at_most_ones) {
     if (at_most_one.empty()) continue;
-    LinearConstraintBuilder lc(m->model(), kMinIntegerValue, IntegerValue(1));
+    LinearConstraintBuilder lc(m, kMinIntegerValue, IntegerValue(1));
     for (const Literal literal : at_most_one) {
       // Note that it is okay to simply ignore the literal if it has no
       // integer view.
-      const bool unused =
+      const bool unused ABSL_ATTRIBUTE_UNUSED =
           lc.AddLiteralTerm(literal, IntegerValue(1));
     }
     relaxation.linear_constraints.push_back(lc.Build());
@@ -1033,7 +1012,8 @@ IntegerVariable AddLPConstraints(const CpModelProto& model_proto,
   // us on one of its components. This is critical on the zephyrus problems for
   // instance.
   for (int i = 0; i < model_proto.objective().coeffs_size(); ++i) {
-    const IntegerVariable var = m->Integer(model_proto.objective().vars(i));
+    const IntegerVariable var =
+        mapping->Integer(model_proto.objective().vars(i));
     const int id = components.GetClassRepresentative(get_var_index(var));
     components_to_size[id] += 1;
   }
@@ -1041,25 +1021,20 @@ IntegerVariable AddLPConstraints(const CpModelProto& model_proto,
   // Dispatch every constraint to its LinearProgrammingConstraint.
   std::map<int, LinearProgrammingConstraint*> representative_to_lp_constraint;
   std::vector<LinearProgrammingConstraint*> lp_constraints;
+  std::map<int, std::vector<LinearConstraint>> id_to_constraints;
   for (int i = 0; i < num_lp_constraints; i++) {
     const int id = components.GetClassRepresentative(get_constraint_index(i));
     if (components_to_size[id] <= 1) continue;
+    id_to_constraints[id].push_back(relaxation.linear_constraints[i]);
     if (!gtl::ContainsKey(representative_to_lp_constraint, id)) {
-      auto* lp = m->model()->Create<LinearProgrammingConstraint>();
+      auto* lp = m->Create<LinearProgrammingConstraint>();
       representative_to_lp_constraint[id] = lp;
       lp_constraints.push_back(lp);
     }
 
     // Load the constraint.
-    LinearProgrammingConstraint* lp = representative_to_lp_constraint[id];
-    const auto lp_constraint =
-        lp->CreateNewConstraint(relaxation.linear_constraints[i].lb,
-                                relaxation.linear_constraints[i].ub);
-    for (int j = 0; j < relaxation.linear_constraints[i].vars.size(); ++j) {
-      lp->SetCoefficient(lp_constraint,
-                         relaxation.linear_constraints[i].vars[j],
-                         relaxation.linear_constraints[i].coeffs[j]);
-    }
+    gtl::FindOrDie(representative_to_lp_constraint, id)
+        ->AddLinearConstraint(relaxation.linear_constraints[i]);
   }
 
   // Dispatch every cut generator to its LinearProgrammingConstraint.
@@ -1067,13 +1042,15 @@ IntegerVariable AddLPConstraints(const CpModelProto& model_proto,
     const int id =
         components.GetClassRepresentative(get_cut_generator_index(i));
     if (!gtl::ContainsKey(representative_to_lp_constraint, id)) {
-      auto* lp = m->model()->Create<LinearProgrammingConstraint>();
+      auto* lp = m->Create<LinearProgrammingConstraint>();
       representative_to_lp_constraint[id] = lp;
       lp_constraints.push_back(lp);
     }
     LinearProgrammingConstraint* lp = representative_to_lp_constraint[id];
     lp->AddCutGenerator(std::move(relaxation.cut_generators[i]));
   }
+
+  const SatParameters& params = *(m->GetOrCreate<SatParameters>());
 
   // Add the objective.
   std::map<int, std::vector<std::pair<IntegerVariable, int64>>>
@@ -1084,7 +1061,8 @@ IntegerVariable AddLPConstraints(const CpModelProto& model_proto,
     // First pass: set objective coefficients on the lp constraints, and store
     // the cp terms in one vector per component.
     for (int i = 0; i < model_proto.objective().coeffs_size(); ++i) {
-      const IntegerVariable var = m->Integer(model_proto.objective().vars(i));
+      const IntegerVariable var =
+          mapping->Integer(model_proto.objective().vars(i));
       const int64 coeff = model_proto.objective().coeffs(i);
       const int id = components.GetClassRepresentative(get_var_index(var));
       if (gtl::ContainsKey(representative_to_lp_constraint, id)) {
@@ -1103,7 +1081,7 @@ IntegerVariable AddLPConstraints(const CpModelProto& model_proto,
           gtl::FindOrDie(representative_to_lp_constraint, id);
       const std::vector<std::pair<IntegerVariable, int64>>& terms = it.second;
       const IntegerVariable sub_obj_var =
-          GetOrCreateVariableGreaterOrEqualToSumOf(terms, m->model());
+          GetOrCreateVariableGreaterOrEqualToSumOf(terms, m);
       top_level_cp_terms.push_back(std::make_pair(sub_obj_var, 1));
       lp->SetMainObjectiveVariable(sub_obj_var);
       num_components_containing_objective++;
@@ -1111,12 +1089,14 @@ IntegerVariable AddLPConstraints(const CpModelProto& model_proto,
   }
 
   const IntegerVariable main_objective_var =
-      GetOrCreateVariableGreaterOrEqualToSumOf(top_level_cp_terms, m->model());
+      model_proto.has_objective()
+          ? GetOrCreateVariableGreaterOrEqualToSumOf(top_level_cp_terms, m)
+          : kNoIntegerVariable;
 
   // Register LP constraints. Note that this needs to be done after all the
   // constraints have been added.
   for (auto* lp_constraint : lp_constraints) {
-    lp_constraint->RegisterWith(m->model());
+    lp_constraint->RegisterWith(m);
     VLOG(2) << "LP constraint: " << lp_constraint->DimensionString() << ".";
   }
 
@@ -1127,7 +1107,7 @@ IntegerVariable AddLPConstraints(const CpModelProto& model_proto,
 }
 
 void ExtractLinearObjective(const CpModelProto& model_proto,
-                            ModelWithMapping* m,
+                            const CpModelMapping& mapping,
                             std::vector<IntegerVariable>* linear_vars,
                             std::vector<IntegerValue>* linear_coeffs) {
   CHECK(model_proto.has_objective());
@@ -1135,7 +1115,7 @@ void ExtractLinearObjective(const CpModelProto& model_proto,
   linear_vars->reserve(obj.vars_size());
   linear_coeffs->reserve(obj.vars_size());
   for (int i = 0; i < obj.vars_size(); ++i) {
-    linear_vars->push_back(m->Integer(obj.vars(i)));
+    linear_vars->push_back(mapping.Integer(obj.vars(i)));
     linear_coeffs->push_back(IntegerValue(obj.coeffs(i)));
   }
 }
@@ -1164,13 +1144,6 @@ void SetSynchronizationFunction(std::function<CpSolverResponse()> f,
   model->GetOrCreate<SynchronizationFunction>()->f = std::move(f);
 }
 
-void SetObjectiveSynchronizationFunction(std::function<double()> f,
-                                         Model* model) {
-  ObjectiveSynchronizationHelper* helper =
-      model->GetOrCreate<ObjectiveSynchronizationHelper>();
-  helper->get_external_bound = std::move(f);
-}
-
 #if !defined(__PORTABLE_PLATFORM__)
 // TODO(user): Support it on android.
 std::function<SatParameters(Model*)> NewSatParameters(
@@ -1197,14 +1170,14 @@ std::function<SatParameters(Model*)> NewSatParameters(
 }
 
 namespace {
-
 // Because we also use this function for postsolve, we call it with
 // is_real_solve set to true and avoid doing non-useful work in this case.
 CpSolverResponse SolveCpModelInternal(
     const CpModelProto& model_proto, bool is_real_solve,
     const std::function<void(const CpSolverResponse&)>&
         external_solution_observer,
-    Model* model) {
+    bool watch_objective_lower_bound,
+    SharedBoundsManager* shared_bounds_manager, Model* model) {
   // Timing.
   WallTimer wall_timer;
   UserTimer user_timer;
@@ -1234,12 +1207,18 @@ CpSolverResponse SolveCpModelInternal(
   // We will add them all at once after model_proto is loaded.
   model->GetOrCreate<IntegerEncoder>()->DisableImplicationBetweenLiteral();
 
-  ModelWithMapping m(model_proto, model);
-  m.DetectOptionalVariables(model_proto);
-  m.ExtractEncoding(model_proto);
+  auto* mapping = model->GetOrCreate<CpModelMapping>();
+  const SatParameters& parameters = *(model->GetOrCreate<SatParameters>());
+  const bool view_all_booleans_as_integers =
+      (parameters.linearization_level() >= 2) ||
+      (parameters.search_branching() == SatParameters::FIXED_SEARCH &&
+       model_proto.search_strategy().empty());
+  mapping->CreateVariables(model_proto, view_all_booleans_as_integers, model);
+  mapping->DetectOptionalVariables(model_proto, model);
+  mapping->ExtractEncoding(model_proto, model);
 
   // Force some variables to be fully encoded.
-  FullEncodingFixedPointComputer fixpoint(&m);
+  FullEncodingFixedPointComputer fixpoint(model);
   for (const ConstraintProto& ct : model_proto.constraints()) {
     fixpoint.PropagateFullEncoding(&ct);
   }
@@ -1249,12 +1228,12 @@ CpSolverResponse SolveCpModelInternal(
   std::set<std::string> unsupported_types;
   int num_ignored_constraints = 0;
   for (const ConstraintProto& ct : model_proto.constraints()) {
-    if (m.ConstraintIsAlreadyLoaded(&ct)) {
+    if (mapping->ConstraintIsAlreadyLoaded(&ct)) {
       ++num_ignored_constraints;
       continue;
     }
 
-    if (!LoadConstraint(ct, &m)) {
+    if (!LoadConstraint(ct, model)) {
       unsupported_types.insert(ConstraintCaseName(ct.constraint_case()));
       continue;
     }
@@ -1298,10 +1277,9 @@ CpSolverResponse SolveCpModelInternal(
   model->GetOrCreate<SatSolver>()->Propagate();
 
   // Auto detect "at least one of" constraints in the PrecedencesPropagator.
-  // Note that we do that before we finish loading the problem (objective and LP
-  // relaxation), because propagation will be faster at this point and it should
-  // be enough for the purpose of this auto-detection.
-  const SatParameters& parameters = *(model->GetOrCreate<SatParameters>());
+  // Note that we do that before we finish loading the problem (objective and
+  // LP relaxation), because propagation will be faster at this point and it
+  // should be enough for the purpose of this auto-detection.
   if (model->Mutable<PrecedencesPropagator>() != nullptr &&
       parameters.auto_detect_greater_than_at_least_one_of()) {
     model->Mutable<PrecedencesPropagator>()
@@ -1312,8 +1290,8 @@ CpSolverResponse SolveCpModelInternal(
   // TODO(user): This should be done in the presolve instead.
   // TODO(user): We don't have a good deterministic time on all constraints,
   // so this might take more time than wanted.
-  if (is_real_solve) {
-    ProbeBooleanVariables(/*deterministic_time_limit=*/1.0, m.model());
+  if (is_real_solve && parameters.cp_model_probing_level() > 1) {
+    ProbeBooleanVariables(/*deterministic_time_limit=*/1.0, model);
     if (!model->GetOrCreate<BinaryImplicationGraph>()
              ->ComputeTransitiveReduction()) {
       model->GetOrCreate<SatSolver>()->NotifyThatModelIsUnsat();
@@ -1326,19 +1304,19 @@ CpSolverResponse SolveCpModelInternal(
   if (is_real_solve && parameters.linearization_level() > 0) {
     // Linearize some part of the problem and register LP constraint(s).
     objective_var =
-        AddLPConstraints(model_proto, parameters.linearization_level(), &m);
+        AddLPConstraints(model_proto, parameters.linearization_level(), model);
   } else if (model_proto.has_objective()) {
     const CpObjectiveProto& obj = model_proto.objective();
     std::vector<std::pair<IntegerVariable, int64>> terms;
     terms.reserve(obj.vars_size());
     for (int i = 0; i < obj.vars_size(); ++i) {
-      terms.push_back(std::make_pair(m.Integer(obj.vars(i)), obj.coeffs(i)));
+      terms.push_back(
+          std::make_pair(mapping->Integer(obj.vars(i)), obj.coeffs(i)));
     }
     if (parameters.optimize_with_core()) {
       objective_var = GetOrCreateVariableWithTightBound(terms, model);
     } else {
-      objective_var =
-          GetOrCreateVariableGreaterOrEqualToSumOf(terms, m.model());
+      objective_var = GetOrCreateVariableGreaterOrEqualToSumOf(terms, model);
     }
   }
 
@@ -1381,7 +1359,7 @@ CpSolverResponse SolveCpModelInternal(
       std::vector<int64> coeffs;
       const CpObjectiveProto& obj = model_proto.objective();
       for (int i = 0; i < obj.vars_size(); ++i) {
-        vars.push_back(m.Integer(obj.vars(i)));
+        vars.push_back(mapping->Integer(obj.vars(i)));
         coeffs.push_back(obj.coeffs(i));
       }
       vars.push_back(objective_var);
@@ -1390,16 +1368,16 @@ CpSolverResponse SolveCpModelInternal(
     }
   }
 
-  // Note that we do one last propagation at level zero once all the constraints
-  // were added.
+  // Note that we do one last propagation at level zero once all the
+  // constraints were added.
   model->GetOrCreate<SatSolver>()->Propagate();
 
   // Initialize the search strategy function.
   std::function<LiteralIndex()> next_decision = ConstructSearchStrategy(
-      model_proto, m.GetVariableMapping(), objective_var, model);
+      model_proto, mapping->GetVariableMapping(), objective_var, model);
   if (VLOG_IS_ON(3)) {
     next_decision = InstrumentSearchStrategy(
-        model_proto, m.GetVariableMapping(), next_decision, model);
+        model_proto, mapping->GetVariableMapping(), next_decision, model);
   }
 
   // Solve.
@@ -1408,26 +1386,65 @@ CpSolverResponse SolveCpModelInternal(
 
   // TODO(user): remove argument as it isn't used. Pass solution info instead?
   std::string solution_info;
-  const auto solution_observer = [&model_proto, &response, &num_solutions, &m,
-                                  &solution_info, &external_solution_observer,
-                                  objective_var,
+  const auto solution_observer = [&model_proto, &response, &num_solutions,
+                                  &model, &solution_info,
+                                  &external_solution_observer, objective_var,
                                   &fill_response_statistics](const Model&) {
     num_solutions++;
-    FillSolutionInResponse(model_proto, m, objective_var, &response);
+    FillSolutionInResponse(model_proto, *model, objective_var, &response);
     fill_response_statistics();
     response.set_solution_info(
-        absl::StrCat("num_bool:", m.model()->Get<SatSolver>()->NumVariables(),
-                     " ", solution_info));
+        absl::StrCat("num_bool:", model->Get<SatSolver>()->NumVariables(), " ",
+                     solution_info));
     external_solution_observer(response);
   };
+
+  if (watch_objective_lower_bound && model_proto.has_objective()) {
+    // Detect sequential mode, register callbacks in that case.
+    if (model->Get<WorkerInfo>() == nullptr) {  // Sequential mode.
+      model->GetOrCreate<WorkerInfo>()->global_timer = &wall_timer;
+      model->GetOrCreate<WorkerInfo>()->worker_id = 0;
+      auto* integer_trail = model->Get<IntegerTrail>();
+      const CpObjectiveProto& obj = model_proto.objective();
+
+      const auto get_objective_value = [&response, integer_trail, &obj,
+                                        objective_var]() {
+        return response.status() != CpSolverStatus::MODEL_INVALID
+                   ? response.objective_value()
+                   : ScaleObjectiveValue(
+                         obj, integer_trail->LevelZeroUpperBound(objective_var)
+                                      .value() +
+                                  1);
+      };
+
+      const auto get_objective_best_bound = [&response, integer_trail, &obj,
+                                             &objective_var]() {
+        return response.status() != CpSolverStatus::MODEL_INVALID
+                   ? response.best_objective_bound()
+                   : ScaleObjectiveValue(
+                         obj, integer_trail->LevelZeroLowerBound(objective_var)
+                                  .value());
+      };
+
+      ObjectiveSynchronizationHelper* helper =
+          model->GetOrCreate<ObjectiveSynchronizationHelper>();
+      helper->get_external_best_objective = std::move(get_objective_value);
+      helper->get_external_best_bound = std::move(get_objective_best_bound);
+      helper->broadcast_lower_bound = false;
+    }
+    RegisterVariableBoundsLevelZeroWatcher(
+        &model_proto, external_solution_observer, VLOG_IS_ON(1), objective_var,
+        shared_bounds_manager, model);
+  }
 
   // Load solution hint.
   // We follow it and allow for a tiny number of conflicts before giving up.
   //
-  // TODO(user): Double check that when this get a feasible solution, it is
-  // properly used in the various optimization algorithm. some of them will
-  // reset the solver to its initial state, but then with phase saving it
-  // should still follow the same path again.
+  // TODO(user): When we get a feasible solution here, even with phase saving
+  // it seems we don't get the same solution while launching the optimization
+  // below. Understand why. Also just constrain the solver to find a better
+  // solution right away, it should be more efficient. Note that this is kind
+  // of already done when get_objective_value() is registered above.
   if (model_proto.has_solution_hint()) {
     const int64 old_conflict_limit = parameters.max_number_of_conflicts();
     model->GetOrCreate<SatParameters>()->set_max_number_of_conflicts(10);
@@ -1437,10 +1454,10 @@ CpSolverResponse SolveCpModelInternal(
       const int ref = model_proto.solution_hint().vars(i);
       CHECK(RefIsPositive(ref));
       BooleanOrIntegerVariable var;
-      if (m.IsBoolean(ref)) {
-        var.bool_var = m.Literal(ref).Variable();
+      if (mapping->IsBoolean(ref)) {
+        var.bool_var = mapping->Literal(ref).Variable();
       } else {
-        var.int_var = m.Integer(ref);
+        var.int_var = mapping->Integer(ref);
       }
       vars.push_back(var);
       values.push_back(IntegerValue(model_proto.solution_hint().values(i)));
@@ -1487,7 +1504,8 @@ CpSolverResponse SolveCpModelInternal(
     if (parameters.optimize_with_core()) {
       std::vector<IntegerVariable> linear_vars;
       std::vector<IntegerValue> linear_coeffs;
-      ExtractLinearObjective(model_proto, &m, &linear_vars, &linear_coeffs);
+      ExtractLinearObjective(model_proto, *model->GetOrCreate<CpModelMapping>(),
+                             &linear_vars, &linear_coeffs);
       if (parameters.optimize_with_max_hs()) {
         status = MinimizeWithHittingSetAndLazyEncoding(
             VLOG_IS_ON(2), objective_var, linear_vars, linear_coeffs,
@@ -1585,7 +1603,9 @@ void PostsolveResponse(const CpModelProto& model_proto,
     postsolve_model.Add(operations_research::sat::NewSatParameters(params));
   }
   const CpSolverResponse postsolve_response = SolveCpModelInternal(
-      mapping_proto, false, [](const CpSolverResponse&) {}, &postsolve_model);
+      mapping_proto, false, [](const CpSolverResponse&) {},
+      /*watch_objective_lower_bound=*/false,
+      /*shared_bounds_manager=*/nullptr, &postsolve_model);
   CHECK_EQ(postsolve_response.status(), CpSolverStatus::FEASIBLE);
 
   // We only copy the solution from the postsolve_response to the response.
@@ -1654,13 +1674,21 @@ CpSolverResponse SolvePureSatModel(const CpModelProto& model_proto,
   for (const ConstraintProto& ct : model_proto.constraints()) {
     switch (ct.constraint_case()) {
       case ConstraintProto::ConstraintCase::kBoolAnd: {
-        // a => b
-        const Literal not_a = get_literal(ct.enforcement_literal(0)).Negated();
-        for (const int ref : ct.bool_and().literals()) {
-          const Literal b = get_literal(ref);
-          solver->AddProblemClause({not_a, b});
-          if (drat_proof_handler != nullptr) {
-            drat_proof_handler->AddProblemClause({not_a, b});
+        if (ct.enforcement_literal_size() == 0) {
+          for (const int ref : ct.bool_and().literals()) {
+            const Literal b = get_literal(ref);
+            solver->AddUnitClause(b);
+          }
+        } else {
+          // a => b
+          const Literal not_a =
+              get_literal(ct.enforcement_literal(0)).Negated();
+          for (const int ref : ct.bool_and().literals()) {
+            const Literal b = get_literal(ref);
+            solver->AddProblemClause({not_a, b});
+            if (drat_proof_handler != nullptr) {
+              drat_proof_handler->AddProblemClause({not_a, b});
+            }
           }
         }
         break;
@@ -1682,11 +1710,10 @@ CpSolverResponse SolvePureSatModel(const CpModelProto& model_proto,
 
   // Deal with fixed variables.
   for (int ref = 0; ref < num_variables; ++ref) {
-    const auto domain = ReadDomain(model_proto.variables(ref));
-    CHECK_EQ(domain.size(), 1);
-    if (domain[0].start == domain[0].end) {
+    const Domain domain = ReadDomainFromProto(model_proto.variables(ref));
+    if (domain.Min() == domain.Max()) {
       const Literal ref_literal =
-          domain[0].start == 0 ? get_literal(ref).Negated() : get_literal(ref);
+          domain.Min() == 0 ? get_literal(ref).Negated() : get_literal(ref);
       solver->AddUnitClause(ref_literal);
       if (drat_proof_handler != nullptr) {
         drat_proof_handler->AddProblemClause({ref_literal});
@@ -1788,8 +1815,10 @@ CpSolverResponse SolveCpModelWithLNS(
   if (synchro != nullptr && synchro->f != nullptr) {
     response = synchro->f();
   } else {
-    response = SolveCpModelInternal(model_proto, /*is_real_solve=*/true,
-                                    observer, model);
+    response =
+        SolveCpModelInternal(model_proto, /*is_real_solve=*/true, observer,
+                             /*watch_objective_lower_bound=*/false,
+                             /*shared_bounds_manager=*/nullptr, model);
   }
   if (response.status() != CpSolverStatus::FEASIBLE) {
     return response;
@@ -1851,8 +1880,17 @@ CpSolverResponse SolveCpModelWithLNS(
         CpModelProto local_problem = generators[selected_generator]->Generate(
             response, num_workers * seed + worker_id, saved_difficulty);
         const std::string solution_info = absl::StrFormat(
-            "%s(d=%0.2f s=%i t=%0.2f)", generators[selected_generator]->name().c_str(),
+            "%s(d=%0.2f s=%i t=%0.2f)", generators[selected_generator]->name(),
             saved_difficulty, seed, deterministic_time);
+
+#if !defined(__PORTABLE_PLATFORM__)
+        if (FLAGS_cp_model_dump_lns_problems) {
+          const int id = num_workers * seed + worker_id;
+          const std::string name = absl::StrCat("/tmp/lns_", id, ".pb.txt");
+          LOG(INFO) << "Dumping LNS model to '" << name << "'.";
+          CHECK_OK(file::SetTextProto(name, local_problem, file::Defaults()));
+        }
+#endif  // __PORTABLE_PLATFORM__
 
         Model local_model;
         {
@@ -1862,11 +1900,7 @@ CpSolverResponse SolveCpModelWithLNS(
           local_parameters.set_stop_after_first_solution(false);
           local_model.Add(NewSatParameters(local_parameters));
         }
-        if (limit->ExternalBooleanAsLimit() != nullptr) {
-          TimeLimit* local_limit = local_model.GetOrCreate<TimeLimit>();
-          local_limit->RegisterExternalBooleanAsLimit(
-              limit->ExternalBooleanAsLimit());
-        }
+        local_model.GetOrCreate<TimeLimit>()->MergeWithGlobalTimeLimit(limit);
 
         // Presolve and solve the LNS fragment.
         CpSolverResponse local_response;
@@ -1875,13 +1909,15 @@ CpSolverResponse SolveCpModelWithLNS(
           std::vector<int> postsolve_mapping;
           PresolveOptions options;
           options.log_info = VLOG_IS_ON(2);
-          options.parameters = local_model.GetOrCreate<SatParameters>();
+          options.parameters = *local_model.GetOrCreate<SatParameters>();
           options.time_limit = local_model.GetOrCreate<TimeLimit>();
           PresolveCpModel(options, &local_problem, &mapping_proto,
                           &postsolve_mapping);
           local_response = SolveCpModelInternal(
-              local_problem, true, [](const CpSolverResponse& response) {},
-              &local_model);
+              local_problem, /*is_real_solve=*/true,
+              [](const CpSolverResponse& response) {},
+              /*watch_objective_lower_bound=*/false,
+              /*shared_bounds_manager=*/nullptr, &local_model);
           PostsolveResponse(model_proto, mapping_proto, postsolve_mapping,
                             &local_response);
         }
@@ -1925,10 +1961,12 @@ CpSolverResponse SolveCpModelWithLNS(
             response.set_deterministic_time(
                 response.deterministic_time() +
                 local_response.deterministic_time());
-            DCHECK(SolutionIsFeasible(
-                model_proto,
-                std::vector<int64>(local_response.solution().begin(),
-                                   local_response.solution().end())));
+            if (DEBUG_MODE || FLAGS_cp_model_check_intermediate_solutions) {
+              CHECK(SolutionIsFeasible(
+                  model_proto,
+                  std::vector<int64>(local_response.solution().begin(),
+                                     local_response.solution().end())));
+            }
             if (num_no_progress == 0) {  // Improving solution.
               response.set_solution_info(solution_info);
               observer(response);
@@ -1951,7 +1989,7 @@ CpSolverResponse SolveCpModelWithLNS(
 CpSolverResponse SolveCpModelParallel(
     const CpModelProto& model_proto,
     const std::function<void(const CpSolverResponse&)>& observer,
-    Model* model) {
+    WallTimer* global_timer, Model* model) {
   const SatParameters& params = *model->GetOrCreate<SatParameters>();
   const int random_seed = params.random_seed();
   CHECK(!params.enumerate_all_solutions());
@@ -2004,7 +2042,8 @@ CpSolverResponse SolveCpModelParallel(
               stopped);
           const CpSolverResponse local_response = SolveCpModelInternal(
               model_proto, true, [](const CpSolverResponse& response) {},
-              &local_model);
+              /*watch_objective_lower_bound=*/false,
+              /*shared_bounds_manager=*/nullptr, &local_model);
 
           absl::MutexLock lock(&mutex);
           if (best_response.status() == CpSolverStatus::UNKNOWN) {
@@ -2026,10 +2065,20 @@ CpSolverResponse SolveCpModelParallel(
     absl::MutexLock lock(&mutex);
     return best_response.objective_value();
   };
+  const auto objective_bound_synchronization = [&mutex, &best_response]() {
+    absl::MutexLock lock(&mutex);
+    return best_response.best_objective_bound();
+  };
   const auto solution_synchronization = [&mutex, &best_response]() {
     absl::MutexLock lock(&mutex);
     return best_response;
   };
+
+  std::unique_ptr<SharedBoundsManager> shared_bounds_manager;
+  if (model->GetOrCreate<SatParameters>()->share_level_zero_bounds()) {
+    shared_bounds_manager.reset(new SharedBoundsManager(
+        num_search_workers, model_proto.variables_size()));
+  }
 
   {
     ThreadPool pool("Parallel_search", num_search_workers);
@@ -2049,9 +2098,13 @@ CpSolverResponse SolveCpModelParallel(
         // Check is the new solution is actually improving upon the best
         // solution found so far.
         if (MergeOptimizationSolution(r, maximize, &best_response)) {
+          // Checks that r is not a pure best-bound improving solution.
+          CHECK_EQ(r.status(), CpSolverStatus::FEASIBLE);
+
           best_response.set_solution_info(
               absl::StrCat(worker_name, " ", r.solution_info()));
           observer(best_response);
+
           // We have potentially displayed the improving solution, and updated
           // the best_response. We can awaken sleeping LNS threads.
           if (!first_solution_found_or_search_finished.HasBeenNotified()) {
@@ -2061,18 +2114,32 @@ CpSolverResponse SolveCpModelParallel(
       };
 
       pool.Schedule([&model_proto, solution_observer, solution_synchronization,
-                     objective_synchronization, stopped, local_params,
-                     worker_id, &mutex, &best_response, num_search_workers,
-                     random_seed, &first_solution_found_or_search_finished,
-                     maximize, worker_name]() {
+                     objective_synchronization, objective_bound_synchronization,
+                     stopped, local_params, worker_id, &mutex, &best_response,
+                     num_search_workers, random_seed, global_timer,
+                     &first_solution_found_or_search_finished,
+                     &shared_bounds_manager, maximize, worker_name]() {
         Model local_model;
         local_model.Add(NewSatParameters(local_params));
         local_model.GetOrCreate<TimeLimit>()->RegisterExternalBooleanAsLimit(
             stopped);
+
+        // Stores info that will be used for logs in the local model.
+        WorkerInfo* worker_info = local_model.GetOrCreate<WorkerInfo>();
+        worker_info->worker_name = worker_name;
+        worker_info->global_timer = global_timer;
+        worker_info->worker_id = worker_id;
+
         SetSynchronizationFunction(std::move(solution_synchronization),
                                    &local_model);
-        SetObjectiveSynchronizationFunction(
-            std::move(objective_synchronization), &local_model);
+
+        ObjectiveSynchronizationHelper* helper =
+            local_model.GetOrCreate<ObjectiveSynchronizationHelper>();
+        helper->get_external_best_objective =
+            std::move(objective_synchronization);
+        helper->get_external_best_bound =
+            std::move(objective_bound_synchronization);
+        helper->broadcast_lower_bound = true;
 
         CpSolverResponse thread_response;
         if (local_params.use_lns()) {
@@ -2083,8 +2150,10 @@ CpSolverResponse SolveCpModelParallel(
               model_proto, solution_observer, num_search_workers,
               worker_id + random_seed, &local_model);
         } else {
-          thread_response = SolveCpModelInternal(
-              model_proto, true, solution_observer, &local_model);
+          thread_response =
+              SolveCpModelInternal(model_proto, true, solution_observer,
+                                   /*watch_objective_lower_bound=*/true,
+                                   shared_bounds_manager.get(), &local_model);
         }
 
         // Process final solution. Decide which worker has the 'best'
@@ -2191,9 +2260,16 @@ CpSolverResponse SolveCpModel(const CpModelProto& model_proto, Model* model) {
     std::vector<int> postsolve_mapping;
     PresolveOptions options;
     options.log_info = VLOG_IS_ON(1);
-    options.parameters = model->GetOrCreate<SatParameters>();
+    options.parameters = *model->GetOrCreate<SatParameters>();
     options.time_limit = model->GetOrCreate<TimeLimit>();
-    PresolveCpModel(options, &new_model, &mapping_proto, &postsolve_mapping);
+    const bool ok = PresolveCpModel(options, &new_model, &mapping_proto,
+                                    &postsolve_mapping);
+    if (!ok) {
+      LOG(ERROR) << "Error while presolving, likely due to integer overflow.";
+      CpSolverResponse response;
+      response.set_status(CpSolverStatus::MODEL_INVALID);
+      return response;
+    }
     VLOG(1) << CpModelStats(new_model);
     postprocess_solution = [&model_proto, mapping_proto,
                             postsolve_mapping](CpSolverResponse* response) {
@@ -2224,21 +2300,24 @@ CpSolverResponse SolveCpModel(const CpModelProto& model_proto, Model* model) {
       [&model_proto, &observers, &num_solutions, &timer,
        &postprocess_solution](const CpSolverResponse& response) {
         const bool maximize = model_proto.objective().scaling_factor() < 0.0;
-        VLOG(1) << absl::StrFormat("#%-5i %6.2fs  obj:[%0.0f,%0.0f]  %s",
-                                   ++num_solutions, timer.Get(),
-                                   maximize ? response.objective_value()
-                                            : response.best_objective_bound(),
-                                   maximize ? response.best_objective_bound()
-                                            : response.objective_value(),
-                                   response.solution_info().c_str());
+        if (VLOG_IS_ON(1)) {
+          LogNewSolution(absl::StrCat(++num_solutions), timer.Get(),
+                         maximize ? response.objective_value()
+                                  : response.best_objective_bound(),
+                         maximize ? response.best_objective_bound()
+                                  : response.objective_value(),
+                         response.solution_info());
+        }
 
         if (observers.empty()) return;
         CpSolverResponse copy = response;
         postprocess_solution(&copy);
         if (!copy.solution().empty()) {
-          DCHECK(SolutionIsFeasible(model_proto,
-                                    std::vector<int64>(copy.solution().begin(),
-                                                       copy.solution().end())));
+          if (DEBUG_MODE || FLAGS_cp_model_check_intermediate_solutions) {
+            CHECK(SolutionIsFeasible(
+                model_proto, std::vector<int64>(copy.solution().begin(),
+                                                copy.solution().end())));
+          }
         }
         for (const auto& observer : observers) {
           observer(copy);
@@ -2252,7 +2331,8 @@ CpSolverResponse SolveCpModel(const CpModelProto& model_proto, Model* model) {
     // We ignore the multithreading parameter in this case.
 #else   // __PORTABLE_PLATFORM__
   if (params.num_search_workers() > 1) {
-    response = SolveCpModelParallel(new_model, observer_function, model);
+    response =
+        SolveCpModelParallel(new_model, observer_function, &timer, model);
 #endif  // __PORTABLE_PLATFORM__
   } else if (params.use_lns() && new_model.has_objective() &&
              !params.enumerate_all_solutions()) {
@@ -2263,7 +2343,9 @@ CpSolverResponse SolveCpModel(const CpModelProto& model_proto, Model* model) {
                                    model);
   } else {
     response = SolveCpModelInternal(new_model, /*is_real_solve=*/true,
-                                    observer_function, model);
+                                    observer_function,
+                                    /*watch_objective_lower_bound=*/true,
+                                    /*shared_bounds_manager=*/nullptr, model);
   }
 
   postprocess_solution(&response);

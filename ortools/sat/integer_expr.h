@@ -89,8 +89,10 @@ class IntegerSumLE : public PropagatorInterface {
   std::vector<IntegerValue> coeffs_;
 
   std::vector<Literal> literal_reason_;
+
+  // Parallel vectors.
   std::vector<IntegerLiteral> integer_reason_;
-  std::vector<int> index_in_integer_reason_;
+  std::vector<IntegerValue> reason_coeffs_;
 
   DISALLOW_COPY_AND_ASSIGN(IntegerSumLE);
 };

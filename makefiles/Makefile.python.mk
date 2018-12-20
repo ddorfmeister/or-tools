@@ -197,14 +197,6 @@ $(GEN_DIR)/ortools/constraint_solver/search_limit_pb2.py: \
 	$(PROTOC) --proto_path=$(INC_DIR) --python_out=$(GEN_PATH) \
  $(SRC_DIR)$Sortools$Sconstraint_solver$Ssearch_limit.proto
 
-$(GEN_DIR)/ortools/constraint_solver/model_pb2.py: \
- $(SRC_DIR)/ortools/constraint_solver/model.proto \
- $(GEN_DIR)/ortools/constraint_solver/search_limit_pb2.py \
- $(PROTOBUF_PYTHON_DESC) \
- | $(GEN_DIR)/ortools/constraint_solver
-	$(PROTOC) --proto_path=$(INC_DIR) --python_out=$(GEN_PATH) \
- $(SRC_DIR)$Sortools$Sconstraint_solver$Smodel.proto
-
 $(GEN_DIR)/ortools/constraint_solver/assignment_pb2.py: \
  $(SRC_DIR)/ortools/constraint_solver/assignment.proto \
  $(PROTOBUF_PYTHON_DESC) \
@@ -243,13 +235,11 @@ $(GEN_DIR)/ortools/constraint_solver/pywrapcp.py: \
  $(SRC_DIR)/ortools/constraint_solver/constraint_solver.h \
  $(SRC_DIR)/ortools/constraint_solver/constraint_solveri.h \
  $(GEN_DIR)/ortools/constraint_solver/assignment_pb2.py \
- $(GEN_DIR)/ortools/constraint_solver/model_pb2.py \
  $(GEN_DIR)/ortools/constraint_solver/routing_enums_pb2.py \
  $(GEN_DIR)/ortools/constraint_solver/routing_parameters_pb2.py \
  $(GEN_DIR)/ortools/constraint_solver/search_limit_pb2.py \
  $(GEN_DIR)/ortools/constraint_solver/solver_parameters_pb2.py \
  $(GEN_DIR)/ortools/constraint_solver/assignment.pb.h \
- $(GEN_DIR)/ortools/constraint_solver/model.pb.h \
  $(GEN_DIR)/ortools/constraint_solver/search_limit.pb.h \
  $(CP_LIB_OBJS) \
  $(PROTOBUF_PYTHON_DESC) \
@@ -258,6 +248,14 @@ $(GEN_DIR)/ortools/constraint_solver/pywrapcp.py: \
  -o $(GEN_PATH)$Sortools$Sconstraint_solver$Sconstraint_solver_python_wrap.cc \
  -module pywrapcp \
  $(SRC_DIR)/ortools/constraint_solver$Spython$Srouting.i
+	$(SED) -i -e 's/< long long >/< int64 >/g' \
+ $(GEN_PATH)$Sortools$Sconstraint_solver$Sconstraint_solver_python_wrap.cc
+	$(SED) -i -e 's/< long long,long long >/< int64, int64 >/g' \
+ $(GEN_PATH)$Sortools$Sconstraint_solver$Sconstraint_solver_python_wrap.cc
+	$(SED) -i -e 's/< long long,std::allocator/< int64, std::allocator/g' \
+ $(GEN_PATH)$Sortools$Sconstraint_solver$Sconstraint_solver_python_wrap.cc
+	$(SED) -i -e 's/,long long,/,int64,/g' \
+ $(GEN_PATH)$Sortools$Sconstraint_solver$Sconstraint_solver_python_wrap.cc
 
 $(GEN_DIR)/ortools/constraint_solver/constraint_solver_python_wrap.cc: \
  $(GEN_DIR)/ortools/constraint_solver/pywrapcp.py
@@ -517,6 +515,7 @@ test_python_sat_samples: \
  rpy_literal_sample_sat \
  rpy_minimal_jobshop_sat \
  rpy_no_overlap_sample_sat \
+ rpy_nurses_sat \
  rpy_optional_interval_sample_sat \
  rpy_rabbits_and_pheasants_sat \
  rpy_ranking_sample_sat \
@@ -553,13 +552,13 @@ check_python_pimpl: \
 # rpy_min_cost_flow \
 # rpy_assignment \
 # rpy_nurses_cp \
-# rpy_nurses_sat \
 # rpy_job_shop_cp \
 # rpy_job_shop_sat
 
 .PHONY: test_python_tests # Run all Python Tests (located in examples/tests)
 test_python_tests: \
  rpy_test_cp_api \
+ rpy_test_routing_api \
  rpy_test_lp_api
 
 .PHONY: test_python_contrib # Run all Python Contrib (located in examples/python and examples/contrib)
@@ -717,7 +716,6 @@ test_python_python: \
  rpy_linear_programming \
  rpy_magic_sequence_distribute \
  rpy_nqueens_sat \
- rpy_nurses_sat \
  rpy_pyflow_example \
  rpy_rcpsp_sat \
  rpy_single_machine_scheduling_with_setup_release_due_dates_sat \
@@ -871,6 +869,14 @@ ifeq ($(UNIX_PROTOBUF_DIR),$(OR_TOOLS_TOP)/dependencies/install)
     PYTHON_SETUP_DEPS += , 'libprotobuf.$L.3.6.1'
   endif
 endif
+ifeq ($(UNIX_ABSL_DIR),$(OR_TOOLS_TOP)/dependencies/install)
+  ifeq ($(PLATFORM),MACOSX)
+    PYTHON_SETUP_DEPS += , 'libabsl_*'
+  endif
+  ifeq ($(PLATFORM),LINUX)
+    PYTHON_SETUP_DEPS += , 'libabsl_*'
+  endif
+endif
 ifeq ($(UNIX_CBC_DIR),$(OR_TOOLS_TOP)/dependencies/install)
   ifeq ($(PLATFORM),MACOSX)
     PYTHON_SETUP_DEPS += , 'libCbcSolver.3.$L'
@@ -896,10 +902,17 @@ ifeq ($(UNIX_CBC_DIR),$(OR_TOOLS_TOP)/dependencies/install)
   endif
 endif
 
+ifndef PRE_RELEASE
+OR_TOOLS_PYTHON_VERSION := $(OR_TOOLS_VERSION)
+else
+OR_TOOLS_PYTHON_VERSION := $(OR_TOOLS_MAJOR).$(OR_TOOLS_MINOR)b$(GIT_REVISION)
+endif
+
+
 $(PYPI_ARCHIVE_TEMP_DIR)/ortools/setup.py: tools/setup.py | $(PYPI_ARCHIVE_TEMP_DIR)/ortools
 	$(COPY) tools$Ssetup.py $(PYPI_ARCHIVE_TEMP_DIR)$Sortools
 	$(SED) -i -e 's/ORTOOLS_PYTHON_VERSION/ortools$(PYPI_OS)/' $(PYPI_ARCHIVE_TEMP_DIR)$Sortools$Ssetup.py
-	$(SED) -i -e 's/VVVV/$(OR_TOOLS_VERSION)/' $(PYPI_ARCHIVE_TEMP_DIR)$Sortools$Ssetup.py
+	$(SED) -i -e 's/VVVV/$(OR_TOOLS_PYTHON_VERSION)/' $(PYPI_ARCHIVE_TEMP_DIR)$Sortools$Ssetup.py
 	$(SED) -i -e 's/PROTOBUF_TAG/$(PROTOBUF_TAG)/' $(PYPI_ARCHIVE_TEMP_DIR)$Sortools$Ssetup.py
 ifeq ($(SYSTEM),win)
 	$(SED) -i -e 's/\.dll/\.pyd/' $(PYPI_ARCHIVE_TEMP_DIR)/ortools/setup.py
@@ -918,10 +931,10 @@ $(PYPI_ARCHIVE_TEMP_DIR)/ortools/ortools/__init__.py: \
 	$(GEN_DIR)/ortools/__init__.py | $(PYPI_ARCHIVE_TEMP_DIR)/ortools/ortools
 	$(COPY) $(GEN_PATH)$Sortools$S__init__.py $(PYPI_ARCHIVE_TEMP_DIR)$Sortools$Sortools$S__init__.py
 ifeq ($(SYSTEM),win)
-	echo __version__ = "$(OR_TOOLS_VERSION)" >> \
+	echo __version__ = "$(OR_TOOLS_PYTHON_VERSION)" >> \
  $(PYPI_ARCHIVE_TEMP_DIR)$Sortools$Sortools$S__init__.py
 else
-	echo "__version__ = \"$(OR_TOOLS_VERSION)\"" >> \
+	echo "__version__ = \"$(OR_TOOLS_PYTHON_VERSION)\"" >> \
  $(PYPI_ARCHIVE_TEMP_DIR)$Sortools$Sortools$S__init__.py
 endif
 
@@ -995,7 +1008,10 @@ ifeq ($(UNIX_GLOG_DIR),$(OR_TOOLS_TOP)/dependencies/install)
 	$(COPYREC) dependencies$Sinstall$Slib$Slibglog* $(PYPI_ARCHIVE_TEMP_DIR)$Sortools$Sortools$S.libs
 endif
 ifeq ($(UNIX_PROTOBUF_DIR),$(OR_TOOLS_TOP)/dependencies/install)
-	$(COPYREC) $(subst /,$S,$(_PROTOBUF_LIB_DIR))$Slibproto* $(PYPI_ARCHIVE_TEMP_DIR)$Sortools$Sortools$S.libs
+	$(COPYREC) $(subst /,$S,$(_PROTOBUF_LIB_DIR))libproto* $(PYPI_ARCHIVE_TEMP_DIR)$Sortools$Sortools$S.libs
+endif
+ifeq ($(UNIX_ABSL_DIR),$(OR_TOOLS_TOP)/dependencies/install)
+	$(COPYREC) $(subst /,$S,$(_ABSL_LIB_DIR))libabsl_* $(PYPI_ARCHIVE_TEMP_DIR)$Sortools$Sortools$S.libs
 endif
 ifeq ($(UNIX_CBC_DIR),$(OR_TOOLS_TOP)/dependencies/install)
 	$(COPYREC) dependencies$Sinstall$Slib$SlibCbc* $(PYPI_ARCHIVE_TEMP_DIR)$Sortools$Sortools$S.libs

@@ -92,10 +92,10 @@ class Customers():
             self.extents = extents  #: The lower left and upper right points
             #: Location[lat,lon]: the centre point of the area.
             self.center = Location(
-                extents['urcrnrlat'] -
-                0.5 * (extents['urcrnrlat'] - extents['llcrnrlat']),
-                extents['urcrnrlon'] -
-                0.5 * (extents['urcrnrlon'] - extents['llcrnrlon']))
+                extents['urcrnrlat'] - 0.5 *
+                (extents['urcrnrlat'] - extents['llcrnrlat']),
+                extents['urcrnrlon'] - 0.5 *
+                (extents['urcrnrlon'] - extents['llcrnrlon']))
         else:
             #: Location[lat,lon]: the centre point of the area.
             (clat, clon) = self.center = Location(center[0], center[1])
@@ -103,14 +103,12 @@ class Customers():
             circ_earth = np.pi * rad_earth
             #: The lower left and upper right points
             self.extents = {
-                'llcrnrlon':
-                (clon -
-                 180 * box_size / (circ_earth * np.cos(np.deg2rad(clat)))),
+                'llcrnrlon': (clon - 180 * box_size /
+                              (circ_earth * np.cos(np.deg2rad(clat)))),
                 'llcrnrlat':
                 clat - 180 * box_size / circ_earth,
-                'urcrnrlon':
-                (clon +
-                 180 * box_size / (circ_earth * np.cos(np.deg2rad(clat)))),
+                'urcrnrlon': (clon + 180 * box_size /
+                              (circ_earth * np.cos(np.deg2rad(clat)))),
                 'urcrnrlat':
                 clat + 180 * box_size / circ_earth
             }
@@ -123,7 +121,7 @@ class Customers():
         lons = (self.extents['llcrnrlon'] + np.random.randn(num_stops) *
                 (self.extents['urcrnrlon'] - self.extents['llcrnrlon']) / stdv)
         # uniformly distributed integer demands.
-        demmands = np.random.randint(min_demand, max_demand, num_stops)
+        demands = np.random.randint(min_demand, max_demand, num_stops)
 
         self.time_horizon = 24 * 60**2  # A 24 hour period.
 
@@ -156,7 +154,7 @@ class Customers():
         self.customers = [
             Customer(idx, dem, lat, lon, tw_open, tw_close)
             for idx, dem, lat, lon, tw_open, tw_close in zip(
-                stops, demmands, lats, lons, start_times, stop_times)
+                stops, demands, lats, lons, start_times, stop_times)
         ]
 
         # The number of seconds needed to 'unload' 1 unit of goods.

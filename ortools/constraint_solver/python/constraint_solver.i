@@ -31,8 +31,9 @@
 // - examples/python/sudoku.py
 // - examples/python/zebra.py
 
-%include "ortools/base/base.i"
+%include "stdint.i"
 
+%include "ortools/base/base.i"
 %include "ortools/util/python/proto.i"
 
 // PY_CONVERT_HELPER_* macros.
@@ -74,6 +75,9 @@ struct FailureProtect {
 #include "ortools/constraint_solver/solver_parameters.pb.h"
 %}
 
+typedef int64_t int64;
+typedef uint64_t uint64;
+
 // We need to fully support C++ inheritance, because it is heavily used by the
 // exposed C++ classes. Eg:
 // class BaseClass {
@@ -91,7 +95,7 @@ struct FailureProtect {
 %module(directors="1") operations_research
 // The %feature and %exception below let python exceptions that occur within
 // director method propagate to the user as they were originally. See
-// http://www.i.org/Doc1.3/Python.html#Python_nn36 for example.
+// http://www.swig.org/Doc1.3/Python.html#Python_nn36 for example.
 %feature("director:except") {
     if ($error != NULL) {
         throw Swig::DirectorMethodException();
@@ -351,17 +355,15 @@ PY_STRINGIFY_DEBUGSTRING(Decision);
                                        penalty_factor);
   }
 
-  LocalSearchFilter* LocalSearchObjectiveFilter(
+  LocalSearchFilter* SumObjectiveFilter(
       const std::vector<IntVar*>& vars,
       Solver::IndexEvaluator2 values,
       IntVar* const objective,
-      Solver::LocalSearchFilterBound filter_enum,
-      Solver::LocalSearchOperation op_enum) {
-    return $self->MakeLocalSearchObjectiveFilter(vars,
-                                                values,
-                                                objective,
-                                                filter_enum,
-                                                op_enum);
+      Solver::LocalSearchFilterBound filter_enum) {
+    return $self->MakeSumObjectiveFilter(vars,
+                                         values,
+                                         objective,
+                                         filter_enum);
   }
 }
 
@@ -927,7 +929,6 @@ namespace operations_research {
 %rename (FailuresLimit) Solver::MakeFailuresLimit;
 %rename (SolutionsLimit) Solver::MakeSolutionsLimit;
 %rename (CustomLimit) Solver::MakeCustomLimit;
-%rename (DefaultSearchLimitParameters) Solver::MakeDefaultSearchLimitParameters;
 
 // Solver: Search logs.
 %rename (SearchLog) Solver::MakeSearchLog;
@@ -1051,12 +1052,6 @@ namespace operations_research {
 %unignore Solver::LE;
 %unignore Solver::EQ;
 
-%unignore Solver::LocalSearchOperation;
-%unignore Solver::SUM;
-%unignore Solver::PROD;
-%unignore Solver::MAX;
-%unignore Solver::MIN;
-
 }  // namespace operations_research
 
 // ============= Unexposed C++ API : Solver class ==============
@@ -1074,11 +1069,6 @@ namespace operations_research {
 // - AddCastConstraint()
 //
 // - state()
-//
-// - ExportModel()
-// - LoadModel()
-// - UpgradeModel()
-//
 //
 // - DebugString()
 // - VirtualMemorySize()
@@ -1786,7 +1776,6 @@ namespace operations_research {
 // - Reset()
 // - Clone()
 // - Copy()
-// - Var()
 // - Store()
 // - Restore()
 // - LoadFromProto()
@@ -1823,6 +1812,7 @@ namespace operations_research {
 %unignore IntervalVarElement::SetPerformedMax;
 %unignore IntervalVarElement::SetPerformedRange;
 %unignore IntervalVarElement::SetPerformedValue;
+%unignore IntervalVarElement::Var;
 
 // SequenceVarElement
 // Ignored:
@@ -1831,7 +1821,6 @@ namespace operations_research {
 // - Reset()
 // - Clone()
 // - Copy()
-// - Var()
 // - Store()
 // - Restore()
 // - LoadFromProto()
@@ -1847,6 +1836,7 @@ namespace operations_research {
 %unignore SequenceVarElement::SetForwardSequence;
 %unignore SequenceVarElement::SetBackwardSequence;
 %unignore SequenceVarElement::SetUnperformed;
+%unignore SequenceVarElement::Var;
 
 // AssignmentContainer<>
 // Ignored:
@@ -1918,19 +1908,19 @@ namespace operations_research {
 %unignore Rev<bool>::SetValue;
 %template(RevBool) Rev<bool>;
 
-%rename (IntContainer) AssignmentContainer<IntVar, IntVarElement>;
-%rename (Element)
-    AssignmentContainer<IntVar, IntVarElement>::MutableElement(int);
-%unignore AssignmentContainer<IntVar, IntVarElement>::Size;
-%template (IntContainer) AssignmentContainer<IntVar, IntVarElement>;
-%rename (IntervalContainer)
-    AssignmentContainer<IntervalVar, IntervalVarElement>;
-%template (IntervalContainer)
-    AssignmentContainer<IntervalVar, IntervalVarElement>;
-%rename (SequenceContainer)
-    AssignmentContainer<SequenceVar, SequenceVarElement>;
-%template (SequenceContainer)
-    AssignmentContainer<SequenceVar, SequenceVarElement>;
+%define CONTAINERHELPER(type, typeElement, name)
+%rename (name) AssignmentContainer<type, typeElement>;
+%unignore AssignmentContainer<type, typeElement>::Contains;
+%rename (Element) AssignmentContainer<type, typeElement>::MutableElement(int);
+%unignore AssignmentContainer<type, typeElement>::Size;
+%unignore AssignmentContainer<type, typeElement>::Store;
+%unignore AssignmentContainer<type, typeElement>::Restore;
+%template (name) AssignmentContainer<type, typeElement>;
+%enddef
+
+CONTAINERHELPER(IntVar, IntVarElement, IntContainer)
+CONTAINERHELPER(IntervalVar, IntervalVarElement, IntervalContainer)
+CONTAINERHELPER(SequenceVar, SequenceVarElement, SequenceContainer)
 
 }  // namespace operations_research
 
@@ -2019,10 +2009,10 @@ namespace operations_research {
 // - MakeNextNeighbor()
 %unignore IntVarLocalSearchOperator;
 %feature("director") IntVarLocalSearchOperator;
-%feature("nodirector") IntVarLocalSearchOperator::Start;
 %unignore IntVarLocalSearchOperator::IntVarLocalSearchOperator;
 %unignore IntVarLocalSearchOperator::~IntVarLocalSearchOperator;
 %unignore IntVarLocalSearchOperator::Size;
+%feature("nodirector") IntVarLocalSearchOperator::Start;
 %rename (OneNeighbor) IntVarLocalSearchOperator::MakeOneNeighbor;
 
 
@@ -2250,3 +2240,4 @@ class PyConstraint(Constraint):
 
 
 }  // %pythoncode
+

@@ -113,12 +113,19 @@ struct ObjectiveSynchronizationHelper {
   double scaling_factor = 1.0;
   double offset = 0.0;
   IntegerVariable objective_var = kNoIntegerVariable;
-  std::function<double()> get_external_bound = nullptr;
+  std::function<double()> get_external_best_objective = nullptr;
+  std::function<double()> get_external_best_bound = nullptr;
+  bool broadcast_lower_bound = false;
 
   int64 UnscaledObjective(double value) const {
     return static_cast<int64>(std::round(value / scaling_factor - offset));
   }
 };
+
+// Prints out a new solution in a fixed format.
+void LogNewSolution(const std::string& event_or_solution_count,
+                    double time_in_seconds, double obj_lb, double obj_ub,
+                    const std::string& solution_info);
 
 }  // namespace sat
 }  // namespace operations_research
