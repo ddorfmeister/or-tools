@@ -265,27 +265,12 @@ enum class ProtoWriteFormat;
 %rename (ScalingOn) operations_research::MPSolverParameters::SCALING_ON;  // no test
 
 // Expose the MPSolverResponseStatus enum.
-%unignore operations_research::MPSolverResponseStatus;  // no test
-%unignore operations_research::MPSolverResponseStatus::MPSolverResponseStatus;  // no test
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_OPTIMAL;  // no test
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_FEASIBLE;  // no test
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_INFEASIBLE;  // no test
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_UNBOUNDED;  // no test
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_ABNORMAL;  // no test
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_NOT_SOLVED;  // no test
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_MODEL_IS_VALID;  // no test
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_UNKNOWN_STATUS;  // no test
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_MODEL_INVALID;  // no test
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_MODEL_INVALID_SOLUTION_HINT;  // no test
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_MODEL_INVALID_SOLVER_PARAMETERS;  // no test
-%unignore operations_research::MPSolverResponseStatus::MPSOLVER_SOLVER_TYPE_UNAVAILABLE;  // no test
+%unignore operations_research::MPSolverResultStatus;  // no test
+// TODO(user): Expose all MPSolverResponseStatus values.
 
 // Expose the ProtoWriteFormat enum.
 %unignore operations_research::ProtoWriteFormat;  // no test
-%unignore operations_research::ProtoWriteFormat::ProtoWriteFormat;  // no test
-%unignore operations_research::ProtoWriteFormat::kProtoText;  // no test
-%unignore operations_research::ProtoWriteFormat::kProtoBinary;  // no test
-%unignore operations_research::ProtoWriteFormat::kJson;  // no test
+// TODO(user): Expose all ProtoWriteFormat values.
 
 %include "ortools/linear_solver/linear_solver.h"
 
