@@ -21,7 +21,7 @@ public class SimpleLpProgram
   static void Main()
   {
     // Create the linear solver with the GLOP backend.
-    Solver solver = Solver.CreateSolver("SimpleLpProgram", "GLOP_LINEAR_PROGRAMMING");
+    Solver solver = Solver.CreateSolver("SimpleLpProgram", "GlopLinearProgramming");
 
     // Create the variables x and y.
     Variable x = solver.MakeNumVar(0.0, 1.0, "x");

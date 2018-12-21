@@ -192,7 +192,7 @@ public partial class Solver {
 
   public static Solver CreateSolver(String name, String type) {
     Solver.OptimizationProblemType solver_type =
-        Solver.OptimizationProblemType.GLOP_LINEAR_PROGRAMMING;
+        Solver.OptimizationProblemType.GlopLinearProgramming;
     if (Enum.TryParse(type, true, out solver_type)) {
       return new Solver(name, solver_type);
     } else {

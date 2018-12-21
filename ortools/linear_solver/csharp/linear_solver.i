@@ -77,25 +77,26 @@ enum class ProtoWriteFormat;
 
 // Expose the MPSolver::OptimizationProblemType enum.
 %unignore operations_research::MPSolver::OptimizationProblemType;
-%unignore operations_research::MPSolver::CLP_LINEAR_PROGRAMMING;
-%unignore operations_research::MPSolver::GLOP_LINEAR_PROGRAMMING;
-%unignore operations_research::MPSolver::GLPK_LINEAR_PROGRAMMING;
-%unignore operations_research::MPSolver::SCIP_MIXED_INTEGER_PROGRAMMING;
-%unignore operations_research::MPSolver::CBC_MIXED_INTEGER_PROGRAMMING;
-%unignore operations_research::MPSolver::GLPK_MIXED_INTEGER_PROGRAMMING;
-%unignore operations_research::MPSolver::GUROBI_LINEAR_PROGRAMMING;
-%unignore operations_research::MPSolver::GUROBI_MIXED_INTEGER_PROGRAMMING;
-%unignore operations_research::MPSolver::CPLEX_LINEAR_PROGRAMMING;
-%unignore operations_research::MPSolver::CPLEX_MIXED_INTEGER_PROGRAMMING;
+%rename (ClpLinearProgramming) operations_research::MPSolver::CLP_LINEAR_PROGRAMMING;
+%rename (GlpkLinearProgramming) operations_research::MPSolver::GLPK_LINEAR_PROGRAMMING;
+%rename (GlopLinearProgramming) operations_research::MPSolver::GLOP_LINEAR_PROGRAMMING;
+%rename (GurobiLinearProgramming) operations_research::MPSolver::GUROBI_LINEAR_PROGRAMMING;
+%rename (CplexLinearProgramming) operations_research::MPSolver::CPLEX_LINEAR_PROGRAMMING;
+%rename (ScipMixedIntegerProgramming) operations_research::MPSolver::SCIP_MIXED_INTEGER_PROGRAMMING;
+%rename (CbcMixedIntegerProgramming) operations_research::MPSolver::CBC_MIXED_INTEGER_PROGRAMMING;
+%rename (GlpkMixedIntegerProgramming) operations_research::MPSolver::GLPK_MIXED_INTEGER_PROGRAMMING;
+%rename (GurobiMixedIntegerProgramming) operations_research::MPSolver::GUROBI_MIXED_INTEGER_PROGRAMMING;
+%rename (CplexMixedIntegerProgramming) operations_research::MPSolver::CPLEX_MIXED_INTEGER_PROGRAMMING;
+%rename (BopIntegerProgramming) operations_research::MPSolver::BOP_INTEGER_PROGRAMMING;
 
 // Expose the MPSolver::ResultStatus enum.
 %unignore operations_research::MPSolver::ResultStatus;
-%unignore operations_research::MPSolver::OPTIMAL;
-%unignore operations_research::MPSolver::FEASIBLE;
-%unignore operations_research::MPSolver::INFEASIBLE;
-%unignore operations_research::MPSolver::UNBOUNDED;
-%unignore operations_research::MPSolver::ABNORMAL;
-%unignore operations_research::MPSolver::NOT_SOLVED;
+%rename (Optimal) operations_research::MPSolver::OPTIMAL;
+%rename (Feasible) operations_research::MPSolver::FEASIBLE;
+%rename (Infeasible) operations_research::MPSolver::INFEASIBLE;
+%rename (Unbounded) operations_research::MPSolver::UNBOUNDED;
+%rename (Abnormal) operations_research::MPSolver::ABNORMAL;
+%rename (NotSolved) operations_research::MPSolver::NOT_SOLVED;
 
 // Expose the MPSolver's basic API, with some non-trivial renames.
 // We intentionally don't expose MakeRowConstraint(LinearExpr), because this
@@ -133,7 +134,7 @@ enum class ProtoWriteFormat;
 %unignore operations_research::MPSolver::LookupConstraintOrNull;
 %unignore operations_research::MPSolver::LookupVariableOrNull;
 %unignore operations_research::MPSolver::SolverVersion;
-%unignore operations_research::MPSolver::IsMIP;
+%rename (IsMip) operations_research::MPSolver::IsMIP;
 %unignore operations_research::MPSolver::ImportModelFromMpsFormat;
 %unignore operations_research::MPSolver::ImportModelFromProtoFormat;
 %unignore operations_research::MPSolver::ExportModelAsProtoFormat;
@@ -144,11 +145,11 @@ enum class ProtoWriteFormat;
 %rename (Nodes) operations_research::MPSolver::nodes;
 %rename (Iterations) operations_research::MPSolver::iterations;
 %unignore operations_research::MPSolver::BasisStatus;
-%unignore operations_research::MPSolver::FREE;
-%unignore operations_research::MPSolver::AT_LOWER_BOUND;
-%unignore operations_research::MPSolver::AT_UPPER_BOUND;
-%unignore operations_research::MPSolver::FIXED_VALUE;
-%unignore operations_research::MPSolver::BASIC;
+%rename (Free) operations_research::MPSolver::FREE;
+%rename (AtLowerBound) operations_research::MPSolver::AT_LOWER_BOUND;
+%rename (AtUpperBound) operations_research::MPSolver::AT_UPPER_BOUND;
+%rename (FixedValue) operations_research::MPSolver::FIXED_VALUE;
+%rename (Basic) operations_research::MPSolver::BASIC;
 
 // Extend code.
 %unignore operations_research::MPSolver::ExportModelAsLpFormat(bool);
@@ -218,55 +219,54 @@ enum class ProtoWriteFormat;
 
 // MPSolverParameters API. For expert users only.
 // TODO(user): unit test all of it.
-
-%unignore operations_research::MPSolverParameters;  // no test
 %unignore operations_research::MPSolverParameters::MPSolverParameters;  // no test
 
 // Expose the MPSolverParameters::DoubleParam enum.
 %unignore operations_research::MPSolverParameters::DoubleParam;  // no test
-%unignore operations_research::MPSolverParameters::RELATIVE_MIP_GAP;  // no test
-%unignore operations_research::MPSolverParameters::PRIMAL_TOLERANCE;  // no test
-%unignore operations_research::MPSolverParameters::DUAL_TOLERANCE;  // no test
+%rename (RelativeMipGap) operations_research::MPSolverParameters::RELATIVE_MIP_GAP;  // no test
+%rename (PrimalTolerance) operations_research::MPSolverParameters::PRIMAL_TOLERANCE;  // no test
+%rename (DualTolerance) operations_research::MPSolverParameters::DUAL_TOLERANCE;  // no test
 %unignore operations_research::MPSolverParameters::GetDoubleParam;  // no test
 %unignore operations_research::MPSolverParameters::SetDoubleParam;  // no test
-%unignore operations_research::MPSolverParameters::kDefaultRelativeMipGap;  // no test
-%unignore operations_research::MPSolverParameters::kDefaultPrimalTolerance;  // no test
-%unignore operations_research::MPSolverParameters::kDefaultDualTolerance;  // no test
+%rename (DefaultRelativeMipGap) operations_research::MPSolverParameters::kDefaultRelativeMipGap;  // no test
+%rename (DefaultPrimalTolerance) operations_research::MPSolverParameters::kDefaultPrimalTolerance;  // no test
+%rename (DefaultDualTolerance) operations_research::MPSolverParameters::kDefaultDualTolerance;  // no test
 
 // Expose the MPSolverParameters::IntegerParam enum.
 %unignore operations_research::MPSolverParameters::IntegerParam;  // no test
-%unignore operations_research::MPSolverParameters::PRESOLVE;  // no test
-%unignore operations_research::MPSolverParameters::LP_ALGORITHM;  // no test
-%unignore operations_research::MPSolverParameters::INCREMENTALITY;  // no test
-%unignore operations_research::MPSolverParameters::SCALING;  // no test
+%rename (Presolve) operations_research::MPSolverParameters::PRESOLVE;  // no test
+%rename (LpAlgorithm) operations_research::MPSolverParameters::LP_ALGORITHM;  // no test
+%rename (Incrementality) operations_research::MPSolverParameters::INCREMENTALITY;  // no test
+%rename (Scaling) operations_research::MPSolverParameters::SCALING;  // no test
 %unignore operations_research::MPSolverParameters::GetIntegerParam;  // no test
 %unignore operations_research::MPSolverParameters::SetIntegerParam;  // no test
 
 // Expose the MPSolverParameters::PresolveValues enum.
 %unignore operations_research::MPSolverParameters::PresolveValues;  // no test
-%unignore operations_research::MPSolverParameters::PRESOLVE_OFF;  // no test
-%unignore operations_research::MPSolverParameters::PRESOLVE_ON;  // no test
-%unignore operations_research::MPSolverParameters::kDefaultPresolve;  // no test
+%rename (PresolveOff) operations_research::MPSolverParameters::PRESOLVE_OFF;  // no test
+%rename (PresolveOn) operations_research::MPSolverParameters::PRESOLVE_ON;  // no test
+%rename (DefaultPresolve) operations_research::MPSolverParameters::kDefaultPresolve;  // no test
 
 // Expose the MPSolverParameters::LpAlgorithmValues enum.
 %unignore operations_research::MPSolverParameters::LpAlgorithmValues;  // no test
-%unignore operations_research::MPSolverParameters::DUAL;  // no test
-%unignore operations_research::MPSolverParameters::PRIMAL;  // no test
-%unignore operations_research::MPSolverParameters::BARRIER;  // no test
+%rename (DualBound) operations_research::MPSolverParameters::DUAL;  // no test
+%rename (PrimalBound) operations_research::MPSolverParameters::PRIMAL;  // no test
+%rename (Barrier) operations_research::MPSolverParameters::BARRIER;  // no test
 
 // Expose the MPSolverParameters::IncrementalityValues enum.
 %unignore operations_research::MPSolverParameters::IncrementalityValues;  // no test
-%unignore operations_research::MPSolverParameters::INCREMENTALITY_OFF;  // no test
-%unignore operations_research::MPSolverParameters::INCREMENTALITY_ON;  // no test
-%unignore operations_research::MPSolverParameters::kDefaultIncrementality;  // no test
+%rename (IncrementalityOff) operations_research::MPSolverParameters::INCREMENTALITY_OFF;  // no test
+%rename (IncrementalityOn) operations_research::MPSolverParameters::INCREMENTALITY_ON;  // no test
+%rename (DefaultIncrementality) operations_research::MPSolverParameters::kDefaultIncrementality;  // no test
 
 // Expose the MPSolverParameters::ScalingValues enum.
 %unignore operations_research::MPSolverParameters::ScalingValues;  // no test
-%unignore operations_research::MPSolverParameters::SCALING_OFF;  // no test
-%unignore operations_research::MPSolverParameters::SCALING_ON;  // no test
+%rename (ScalingOff) operations_research::MPSolverParameters::SCALING_OFF;  // no test
+%rename (ScalingOn) operations_research::MPSolverParameters::SCALING_ON;  // no test
 
 // Expose the MPSolverResponseStatus enum.
 %unignore operations_research::MPSolverResponseStatus;  // no test
+%unignore operations_research::MPSolverResponseStatus::MPSolverResponseStatus;  // no test
 %unignore operations_research::MPSolverResponseStatus::MPSOLVER_OPTIMAL;  // no test
 %unignore operations_research::MPSolverResponseStatus::MPSOLVER_FEASIBLE;  // no test
 %unignore operations_research::MPSolverResponseStatus::MPSOLVER_INFEASIBLE;  // no test
@@ -282,6 +282,7 @@ enum class ProtoWriteFormat;
 
 // Expose the ProtoWriteFormat enum.
 %unignore operations_research::ProtoWriteFormat;  // no test
+%unignore operations_research::ProtoWriteFormat::ProtoWriteFormat;  // no test
 %unignore operations_research::ProtoWriteFormat::kProtoText;  // no test
 %unignore operations_research::ProtoWriteFormat::kProtoBinary;  // no test
 %unignore operations_research::ProtoWriteFormat::kJson;  // no test

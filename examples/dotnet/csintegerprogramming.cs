@@ -42,7 +42,7 @@ public class CsIntegerProgramming
     Solver.ResultStatus resultStatus = solver.Solve();
 
     // Check that the problem has an optimal solution.
-    if (resultStatus != Solver.ResultStatus.OPTIMAL)
+    if (resultStatus != Solver.ResultStatus.Optimal)
     {
       Console.WriteLine("The problem does not have an optimal solution!");
       return;
@@ -81,7 +81,7 @@ public class CsIntegerProgramming
     Solver.ResultStatus resultStatus = solver.Solve();
 
     // Check that the problem has an optimal solution.
-    if (resultStatus != Solver.ResultStatus.OPTIMAL)
+    if (resultStatus != Solver.ResultStatus.Optimal)
     {
       Console.WriteLine("The problem does not have an optimal solution!");
       return;
@@ -106,19 +106,19 @@ public class CsIntegerProgramming
   static void Main()
   {
     Console.WriteLine("---- Integer programming example with GLPK ----");
-    RunIntegerProgrammingExample("GLPK_MIXED_INTEGER_PROGRAMMING");
+    RunIntegerProgrammingExample("GlpkMixedIntegerPrgramming");
     Console.WriteLine("---- Linear programming example with CBC ----");
-    RunIntegerProgrammingExample("CBC_MIXED_INTEGER_PROGRAMMING");
+    RunIntegerProgrammingExample("CbcMixedIntegerProgramming");
     Console.WriteLine("---- Linear programming example with SCIP ----");
-    RunIntegerProgrammingExample("SCIP_MIXED_INTEGER_PROGRAMMING");
+    RunIntegerProgrammingExample("ScipMixedIntegerProgramming");
     Console.WriteLine(
         "---- Integer programming example (Natural API) with GLPK ----");
-    RunIntegerProgrammingExampleNaturalApi("GLPK_MIXED_INTEGER_PROGRAMMING");
+    RunIntegerProgrammingExampleNaturalApi("GlpkMixedIntegerProgramming");
     Console.WriteLine(
         "---- Linear programming example (Natural API) with CBC ----");
-    RunIntegerProgrammingExampleNaturalApi("CBC_MIXED_INTEGER_PROGRAMMING");
+    RunIntegerProgrammingExampleNaturalApi("CbcMixedIntegerProgramming");
     Console.WriteLine(
         "---- Linear programming example (Natural API) with SCIP ----");
-    RunIntegerProgrammingExampleNaturalApi("SCIP_MIXED_INTEGER_PROGRAMMING");
+    RunIntegerProgrammingExampleNaturalApi("ScipMixedIntegerProgramming");
   }
 }

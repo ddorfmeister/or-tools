@@ -30,7 +30,7 @@ public class Volsay2 {
    */
   private static void Solve() {
     Solver solver = new Solver(
-    	   "Volsay2", Solver.OptimizationProblemType.CLP_LINEAR_PROGRAMMING);
+    	   "Volsay2", Solver.OptimizationProblemType.ClpLinearProgramming);
 
     int num_products = 2;
     IEnumerable<int> PRODUCTS = Enumerable.Range(0, num_products);
@@ -58,7 +58,7 @@ public class Volsay2 {
 
     Solver.ResultStatus resultStatus = solver.Solve();
 
-    if (resultStatus != Solver.ResultStatus.OPTIMAL) {
+    if (resultStatus != Solver.ResultStatus.Optimal) {
       Console.WriteLine("The problem don't have an optimal solution.");
       return;
     }

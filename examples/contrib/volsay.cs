@@ -28,7 +28,7 @@ public class Volsay {
    */
   private static void Solve() {
     Solver solver = new Solver(
-    	   "Volsay", Solver.OptimizationProblemType.CLP_LINEAR_PROGRAMMING);
+    	   "Volsay", Solver.OptimizationProblemType.ClpLinearProgramming);
 
     //
     // Variables
@@ -43,7 +43,7 @@ public class Volsay {
 
     Solver.ResultStatus resultStatus = solver.Solve();
 
-    if (resultStatus != Solver.ResultStatus.OPTIMAL) {
+    if (resultStatus != Solver.ResultStatus.Optimal) {
       Console.WriteLine("The problem don't have an optimal solution.");
       return;
     }

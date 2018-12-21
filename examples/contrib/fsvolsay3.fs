@@ -54,7 +54,7 @@ let solver (solverType:LinearProgramming) =
   let resultStatus = svr.Solve();
 
   match resultStatus with
-  | status when status <> Solver.ResultStatus.OPTIMAL ->
+  | status when status <> Solver.ResultStatus.Optimal ->
       printfn "The problem does not have an optimal solution!"
       exit 0
   | _ ->

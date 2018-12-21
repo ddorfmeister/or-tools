@@ -60,7 +60,7 @@ public class CsLinearProgramming
     Solver.ResultStatus resultStatus = solver.Solve();
 
     // Check that the problem has an optimal solution.
-    if (resultStatus != Solver.ResultStatus.OPTIMAL) {
+    if (resultStatus != Solver.ResultStatus.Optimal) {
       Console.WriteLine("The problem does not have an optimal solution!");
       return;
     }
@@ -123,7 +123,7 @@ public class CsLinearProgramming
     Solver.ResultStatus resultStatus = solver.Solve();
 
     // Check that the problem has an optimal solution.
-    if (resultStatus != Solver.ResultStatus.OPTIMAL) {
+    if (resultStatus != Solver.ResultStatus.Optimal) {
       Console.WriteLine("The problem does not have an optimal solution!");
       return;
     }
@@ -158,19 +158,19 @@ public class CsLinearProgramming
   static void Main()
   {
     Console.WriteLine("---- Linear programming example with GLOP ----");
-    RunLinearProgrammingExample("GLOP_LINEAR_PROGRAMMING");
+    RunLinearProgrammingExample("GlopLinearProgramming");
     Console.WriteLine("---- Linear programming example with GLPK ----");
-    RunLinearProgrammingExample("GLPK_LINEAR_PROGRAMMING");
+    RunLinearProgrammingExample("GlpkLinearProgramming");
     Console.WriteLine("---- Linear programming example with CLP ----");
-    RunLinearProgrammingExample("CLP_LINEAR_PROGRAMMING");
+    RunLinearProgrammingExample("ClpLinearProgramming");
     Console.WriteLine(
         "---- Linear programming example (Natural API) with GLOP ----");
-    RunLinearProgrammingExampleNaturalApi("GLOP_LINEAR_PROGRAMMING", true);
+    RunLinearProgrammingExampleNaturalApi("GlopLinearProgramming", true);
     Console.WriteLine(
         "---- Linear programming example (Natural API) with GLPK ----");
-    RunLinearProgrammingExampleNaturalApi("GLPK_LINEAR_PROGRAMMING", false);
+    RunLinearProgrammingExampleNaturalApi("GlpkLinearProgramming", false);
     Console.WriteLine(
         "---- Linear programming example (Natural API) with CLP ----");
-    RunLinearProgrammingExampleNaturalApi("CLP_LINEAR_PROGRAMMING", false);
+    RunLinearProgrammingExampleNaturalApi("ClpLinearProgramming", false);
   }
 }

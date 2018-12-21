@@ -7,7 +7,7 @@ namespace Google.OrTools.Tests {
   public class LinearProgramming {
     [Fact]
       public void TestVarOperator() {
-        Solver solver = new Solver("TestVarOperator", Solver.CLP_LINEAR_PROGRAMMING);
+        Solver solver = new Solver("TestVarOperator", Solver.OptimizationProblemType.ClpLinearProgramming);
         Variable x = solver.MakeNumVar(0.0, 100.0, "x");
         Constraint ct1 = solver.Add(x >= 1);
         Constraint ct2 = solver.Add(x <= 1);
@@ -38,7 +38,7 @@ namespace Google.OrTools.Tests {
 
     [Fact]
       public void TestVarAddition() {
-        Solver solver = new Solver("TestVarAddition", Solver.CLP_LINEAR_PROGRAMMING);
+        Solver solver = new Solver("TestVarAddition", Solver.OptimizationProblemType.ClpLinearProgramming);
         Variable x = solver.MakeNumVar(0.0, 100.0, "x");
         Variable y = solver.MakeNumVar(0.0, 100.0, "y");
 
@@ -62,7 +62,7 @@ namespace Google.OrTools.Tests {
 
     [Fact]
       public void TestVarMultiplication() {
-        Solver solver = new Solver("TestVarMultiplication", Solver.CLP_LINEAR_PROGRAMMING);
+        Solver solver = new Solver("TestVarMultiplication", Solver.OptimizationProblemType.ClpLinearProgramming);
         Variable x = solver.MakeNumVar(0.0, 100.0, "x");
         Variable y = solver.MakeNumVar(0.0, 100.0, "y");
 
@@ -91,7 +91,7 @@ namespace Google.OrTools.Tests {
 
     [Fact]
       public void TestBinaryOperations() {
-        Solver solver = new Solver("TestBinaryOperations", Solver.CLP_LINEAR_PROGRAMMING);
+        Solver solver = new Solver("TestBinaryOperations", Solver.OptimizationProblemType.ClpLinearProgramming);
         Variable x = solver.MakeNumVar(0.0, 100.0, "x");
         Variable y = solver.MakeNumVar(0.0, 100.0, "y");
 
@@ -119,7 +119,7 @@ namespace Google.OrTools.Tests {
 
     [Fact]
       public void TestInequalities() {
-        Solver solver = new Solver("TestInequalities", Solver.CLP_LINEAR_PROGRAMMING);
+        Solver solver = new Solver("TestInequalities", Solver.OptimizationProblemType.ClpLinearProgramming);
         Variable x = solver.MakeNumVar(0.0, 100.0, "x");
         Variable y = solver.MakeNumVar(0.0, 100.0, "y");
 
@@ -150,7 +150,7 @@ namespace Google.OrTools.Tests {
 
     [Fact]
       public void TestSumArray() {
-        Solver solver = new Solver("TestSumArray", Solver.CLP_LINEAR_PROGRAMMING);
+        Solver solver = new Solver("TestSumArray", Solver.OptimizationProblemType.ClpLinearProgramming);
 
         Variable[] x = solver.MakeBoolVarArray(10, "x");
         Constraint ct1 = solver.Add(x.Sum() == 3);
@@ -169,7 +169,7 @@ namespace Google.OrTools.Tests {
     [Fact]
       public void TestObjective() {
 
-        Solver solver = new Solver("TestObjective", Solver.CLP_LINEAR_PROGRAMMING);
+        Solver solver = new Solver("TestObjective", Solver.OptimizationProblemType.ClpLinearProgramming);
 
         Variable x = solver.MakeNumVar(0.0, 100.0, "x");
         Variable y = solver.MakeNumVar(0.0, 100.0, "y");

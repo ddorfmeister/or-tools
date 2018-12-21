@@ -28,11 +28,11 @@ module FSharp =
     /// Solver Name
     override this.ToString() =
       match this with
-      | CLP -> "CLP_LINEAR_PROGRAMMING"
-      | GLPK -> "GLPK_LINEAR_PROGRAMMING"
-      | GLOP -> "GLOP_LINEAR_PROGRAMMING"
-      | GUROBI -> "GUROBI_LINEAR_PROGRAMMING"
-      | CPLEX -> "CPLEX_LINEAR_PROGRAMMING"
+      | CLP -> "ClpLinearProgramming"
+      | GLPK -> "GlpkLinearProgramming"
+      | GLOP -> "GlopLinearProgramming"
+      | GUROBI -> "GurobiLinearProgramming"
+      | CPLEX -> "CplexLinearProgramming"
     /// Solver Id
     member this.Id =
       match this with
@@ -59,12 +59,12 @@ module FSharp =
       /// Solver Name
       override this.ToString() =
         match this with
-        | SCIP -> "SCIP_MIXED_INTEGER_PROGRAMMING"
-        | GLPK -> "GLPK_MIXED_INTEGER_PROGRAMMING"
-        | CBC -> "CBC_MIXED_INTEGER_PROGRAMMING"
-        | GUROBI -> "GUROBI_MIXED_INTEGER_PROGRAMMING"
-        | CPLEX -> "CPLEX_MIXED_INTEGER_PROGRAMMING"
-        | BOP -> "BOP_INTEGER_PROGRAMMING"
+        | SCIP -> "ScipMixedIntegerProgramming"
+        | GLPK -> "GlpkMixedIntegerProgramming"
+        | CBC -> "CbcMixedIntegerProgramming"
+        | GUROBI -> "GurobiMixedIntegerProgramming"
+        | CPLEX -> "CplexMixedIntegerProgramming"
+        | BOP -> "BopMixedIntegerProgramming"
       /// Solver Id
       member this.Id =
         match this with
@@ -346,7 +346,7 @@ module FSharp =
     let resultStatus = solver.Solve();
 
     match resultStatus with
-    | status when status <> Solver.ResultStatus.OPTIMAL ->
+    | status when status <> Solver.ResultStatus.Optimal ->
         printfn "The problem does not have an optimal solution!"
         exit 0
     | _ ->

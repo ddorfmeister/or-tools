@@ -162,7 +162,7 @@ class SCIPInterface : public MPSolverInterface {
   std::function<SCIP_SOL*(SCIP*)> SCIPgetBestSol;
   std::function<SCIP_Real(SCIP*)> SCIPgetDualbound;
   std::function<SCIP_Longint(SCIP*)> SCIPgetNLPIterations;
-  std::function<SCIP_Longint(SCIP*)> SCIPgetNNodes;
+  std::function<SCIP_Longint(SCIP*)> SCIPgetNTotalNodes;
   std::function<SCIP_Real(SCIP*, SCIP_SOL*)> SCIPgetSolOrigObj;
   std::function<SCIP_Real(SCIP*, SCIP_SOL*, SCIP_VAR*)> SCIPgetSolVal;
   std::function<SCIP_STATUS(SCIP*)> SCIPgetStatus;
@@ -230,7 +230,7 @@ SCIPInterface::SCIPInterface(MPSolver* solver)
     lib_->GetFunction(&SCIPgetBestSol, NAMEOF(SCIPgetBestSol));
     lib_->GetFunction(&SCIPgetDualbound, NAMEOF(SCIPgetDualbound));
     lib_->GetFunction(&SCIPgetNLPIterations, NAMEOF(SCIPgetNLPIterations));
-    lib_->GetFunction(&SCIPgetNNodes, NAMEOF(SCIPgetNNodes));
+    lib_->GetFunction(&SCIPgetNTotalNodes, NAMEOF(SCIPgetNTotalNodes));
     lib_->GetFunction(&SCIPgetSolOrigObj, NAMEOF(SCIPgetSolOrigObj));
     lib_->GetFunction(&SCIPgetSolVal, NAMEOF(SCIPgetSolVal));
     lib_->GetFunction(&SCIPgetStatus, NAMEOF(SCIPgetStatus));

@@ -21,7 +21,7 @@ public class SimpleMipProgram
   {
     // [START solver]
     // Create the linear solver with the CBC backend.
-    Solver solver = Solver.CreateSolver("SimpleMipProgram", "CBC_MIXED_INTEGER_PROGRAMMING");
+    Solver solver = Solver.CreateSolver("SimpleMipProgram", "CbcMixedIntegerProgramming");
     // [END solver]
 
     // [START variables]
@@ -50,7 +50,7 @@ public class SimpleMipProgram
     // [START solve]
     Solver.ResultStatus resultStatus = solver.Solve();
     // Check that the problem has an optimal solution.
-    if (resultStatus != Solver.ResultStatus.OPTIMAL)
+    if (resultStatus != Solver.ResultStatus.Optimal)
     {
       Console.WriteLine("The problem does not have an optimal solution!");
       return;
