@@ -44,8 +44,6 @@ foreach(EXECUTABLE
   solve
   sports_scheduling_sat
   strawberry_fields_with_column_generation
-  tsp
-  vrp
   weighted_tardiness_sat)
   add_executable(${EXECUTABLE} ${EXECUTABLE}.cc)
   target_include_directories(${EXECUTABLE} PUBLIC ${PARENT_SOURCE_DIR})
@@ -54,7 +52,6 @@ foreach(EXECUTABLE
   install(TARGETS ${EXECUTABLE}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endforeach()
-
 
 foreach(TEST
     costas_array_sat
@@ -85,8 +82,6 @@ foreach(TEST
     #solve
     #sports_scheduling_sat # Too long
     #strawberry_fields_with_column_generation # Too long
-    tsp
-    vrp
     #weighted_tardiness_sat
     )
   add_test(NAME cc_${TEST} COMMAND ${TEST})

@@ -392,7 +392,10 @@ SatSolver::Status SolveProblemWithPortfolioSearch(
   const bool synchronize_objective =
       solver->AssumptionLevel() == 0 && helper != nullptr &&
       helper->get_external_best_objective != nullptr &&
-      helper->objective_var != kNoIntegerVariable;
+      helper->objective_var != kNoIntegerVariable &&
+      model->GetOrCreate<SatParameters>()->share_objective_bounds() &&
+      model->GetOrCreate<ObjectiveSynchronizationHelper>()
+          ->broadcast_lower_bound;  // True only in parallel mode.
 
   // Note that it is important to do the level-zero propagation if it wasn't
   // already done because EnqueueDecisionAndBackjumpOnConflict() assumes that
@@ -415,21 +418,11 @@ SatSolver::Status SolveProblemWithPortfolioSearch(
       policy_index = (policy_index + 1) % num_policies;
     }
 
-    if (solver->CurrentDecisionLevel() == 0) {
-      auto* level_zero_callbacks =
-          model->GetOrCreate<LevelZeroCallbackHelper>();
-      for (const auto& cb : level_zero_callbacks->callbacks) {
-        if (!cb()) {
-          return SatSolver::INFEASIBLE;
-        }
-      }
-    }
-
     // Check external objective, and restart if a better one is supplied.
+    // This code has to be run before the level_zero_propagate_callbacks are
+    // triggered, as one of them will actually import the new objective bounds.
     // TODO(user): Maybe do not check this at each decision.
-    // TODO(user): Split the code in 2:
-    //     - Restart part
-    //     - Bounds application as a level_zero_callbacks.
+    // TODO(user): Move restart code to the restart part?
     if (synchronize_objective) {
       const double external_bound = helper->get_external_best_objective();
       CHECK(helper->get_external_best_bound != nullptr);
@@ -452,23 +445,15 @@ SatSolver::Status SolveProblemWithPortfolioSearch(
         if (!solver->RestoreSolverToAssumptionLevel()) {
           return solver->UnsatStatus();
         }
-        DCHECK_EQ(solver->CurrentDecisionLevel(), 0);
-        if (new_objective_upper_bound < current_objective_upper_bound &&
-            !integer_trail->Enqueue(
-                IntegerLiteral::LowerOrEqual(helper->objective_var,
-                                             new_objective_upper_bound),
-                {}, {})) {
+      }
+    }
+
+    if (solver->CurrentDecisionLevel() == 0) {
+      auto* level_zero_callbacks =
+          model->GetOrCreate<LevelZeroCallbackHelper>();
+      for (const auto& cb : level_zero_callbacks->callbacks) {
+        if (!cb()) {
           return SatSolver::INFEASIBLE;
-        }
-        if (new_objective_lower_bound > current_objective_lower_bound &&
-            !integer_trail->Enqueue(
-                IntegerLiteral::GreaterOrEqual(helper->objective_var,
-                                               new_objective_lower_bound),
-                {}, {})) {
-          return SatSolver::INFEASIBLE;
-        }
-        if (!solver->FinishPropagation()) {
-          return solver->UnsatStatus();
         }
       }
     }
@@ -503,7 +488,7 @@ SatSolver::Status SolveIntegerProblemWithLazyEncoding(Model* model) {
 void LogNewSolution(const std::string& event_or_solution_count,
                     double time_in_seconds, double obj_lb, double obj_ub,
                     const std::string& solution_info) {
-  LOG(INFO) << absl::StrFormat("#%-5s %6.2fs  obj:[%0.0f,%0.0f]  %s",
+  LOG(INFO) << absl::StrFormat("#%-5s %6.2fs  obj:[%g,%g]  %s",
                                event_or_solution_count, time_in_seconds, obj_lb,
                                obj_ub, solution_info);
 }

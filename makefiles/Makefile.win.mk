@@ -104,32 +104,32 @@ CCC=cl /EHsc /MD /nologo
 endif
 
 PYTHON_VERSION = $(WINDOWS_PYTHON_VERSION)
-PYTHON_INC=/I$(WINDOWS_PATH_TO_PYTHON)\\include
+PYTHON_INC=/I"$(WINDOWS_PATH_TO_PYTHON)\\include"
 PYTHON_LNK="$(WINDOWS_PATH_TO_PYTHON)\\libs\\python$(PYTHON_VERSION).lib"
 
 # This is needed to find GLPK include files.
 ifdef WINDOWS_GLPK_DIR
-GLPK_INC = /I$(WINDOWS_GLPK_DIR)\\include /DUSE_GLPK
-GLPK_SWIG = -I$(WINDOWS_GLPK_DIR)/include -DUSE_GLPK
+GLPK_INC = /I"$(WINDOWS_GLPK_DIR)\\include" /DUSE_GLPK
+GLPK_SWIG = -I"$(WINDOWS_GLPK_DIR)/include" -DUSE_GLPK
 endif
 # This is needed to find SCIP include files.
 ifdef WINDOWS_SCIP_DIR
-  SCIP_INC = /I$(WINDOWS_SCIP_DIR)\\include /DUSE_SCIP
+  SCIP_INC = /I"$(WINDOWS_SCIP_DIR)\\include" /DUSE_SCIP
   SCIP_SWIG = -I"$(WINDOWS_SCIP_DIR)/include" -DUSE_SCIP
 endif
 # This is needed to find CPLEX include files.
 ifdef WINDOWS_CPLEX_DIR
-  CPLEX_INC = /I$(WINDOWS_CPLEX_DIR)\\include /DUSE_CPLEX
-  CPLEX_SWIG = -DUSE_CPLEX
+  CPLEX_INC = /I"$(WINDOWS_CPLEX_DIR)\\include" /DUSE_CPLEX
+  CPLEX_SWIG = -I"$(WINDOWS_CPLEX_DIR)/include" -DUSE_CPLEX
 endif
 # This is needed to find Gurobi include files.
 ifdef WINDOWS_GUROBI_DIR
   ifeq ($(PTRLENGTH),64)
-    GUROBI_INC = /I$(WINDOWS_GUROBI_DIR)\win64\include /DUSE_GUROBI
-    GUROBI_SWIG = -I$(WINDOWS_GUROBI_DIR)/win64/include -DUSE_GUROBI
+    GUROBI_INC = /I"$(WINDOWS_GUROBI_DIR)\win64\include" /DUSE_GUROBI
+    GUROBI_SWIG = -I"$(WINDOWS_GUROBI_DIR)/win64/include" -DUSE_GUROBI
   else
-    GUROBI_INC = /I$(WINDOWS_GUROBI_DIR)\win32\include /DUSE_GUROBI
-    GUROBI_SWIG = -I$(WINDOWS_GUROBI_DIR)/win32/include -DUSE_GUROBI
+    GUROBI_INC = /I"$(WINDOWS_GUROBI_DIR)\win32\include" /DUSE_GUROBI
+    GUROBI_SWIG = -I"$(WINDOWS_GUROBI_DIR)/win32/include" -DUSE_GUROBI
   endif
 endif
 

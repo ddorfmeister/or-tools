@@ -73,6 +73,11 @@ inline double ToDouble(IntegerValue value) {
   return static_cast<double>(value.value());
 }
 
+template <class IntType>
+inline IntType IntTypeAbs(IntType t) {
+  return IntType(std::abs(t.value()));
+}
+
 inline IntegerValue CeilRatio(IntegerValue dividend,
                               IntegerValue positive_divisor) {
   CHECK_GT(positive_divisor, 0);
@@ -973,7 +978,7 @@ class GenericLiteralWatcher : public SatPropagator {
   // cycle if we fix variables in "stages".
   void RegisterLevelZeroModifiedVariablesCallback(
       const std::function<void(const std::vector<IntegerVariable>&)> cb) {
-    level_zero_modified_variable_callback_ = cb;
+    level_zero_modified_variable_callback_.push_back(cb);
   }
 
  private:
@@ -1008,8 +1013,8 @@ class GenericLiteralWatcher : public SatPropagator {
   std::vector<int> id_to_priority_;
   std::vector<int> id_to_idempotence_;
 
-  std::function<void(const std::vector<IntegerVariable>&)>
-      level_zero_modified_variable_callback_ = nullptr;
+  std::vector<std::function<void(const std::vector<IntegerVariable>&)>>
+      level_zero_modified_variable_callback_;
 
   DISALLOW_COPY_AND_ASSIGN(GenericLiteralWatcher);
 };

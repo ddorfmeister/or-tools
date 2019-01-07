@@ -948,7 +948,7 @@ class CpModel(object):
         model_ct = self.__model.constraints[ct.Index()]
         model_ct.reservoir.times.extend([self.GetOrMakeIndex(x) for x in times])
         model_ct.reservoir.demands.extend(demands)
-        model_ct.reservoir.actives.extend(actives)
+        model_ct.reservoir.actives.extend([self.GetOrMakeIndex(x) for x in actives])
         model_ct.reservoir.min_level = min_level
         model_ct.reservoir.max_level = max_level
         return ct
@@ -1556,7 +1556,10 @@ class ObjectiveSolutionPrinter(CpSolverSolutionCallback):
         """Called on each new solution."""
         current_time = time.time()
         objective = self.ObjectiveValue()
-        print('Solution %i, time = %f s, objective = [%i, %i]' %
+        best_bound = self.BestObjectiveBound()
+        obj_lb = min(objective, best_bound)
+        obj_ub = max(objective, best_bound)
+        print('Solution %i, time = %.2f s, objective = [%i, %i]' %
               (self.__solution_count, current_time - self.__start_time,
-               objective, self.BestObjectiveBound()))
+               obj_lb, obj_ub))
         self.__solution_count += 1
