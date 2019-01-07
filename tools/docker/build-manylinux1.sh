@@ -182,7 +182,18 @@ do
     ###
     ### Wheel test
     ###
-    WHEEL_FILE=$(echo "${EXPORT_ROOT}"/*-"${PYTAG}"-*.whl)
+
+    # Hack wheel file to rename it manylinux1 since manylinux2010 is still not
+    # supported by pip
+    FILE=(${EXPORT_ROOT}/*-${PYTAG}-*.whl)
+    unzip "$FILE" -d /tmp
+    sed -i 's/manylinux2010/manylinux1/' /tmp/ortools-*.dist-info/WHEEL
+    rm -f $FILE
+
+    WHEEL_FILE=${FILE//manylinux2010/manylinux1}
+    (cd /tmp; zip -r ${WHEEL_FILE} ortools ortools-*; rm -r ortools*)
+    echo "Wheel file: ${WHEEL_FILE}"
+
     # Create and activate a new virtualenv
     "${PYBIN}/virtualenv" -p "${PYBIN}/python" "${BUILD_ROOT}/${PYTAG}-test"
     # shellcheck source=/dev/null

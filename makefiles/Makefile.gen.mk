@@ -1827,8 +1827,7 @@ objs/sat/optimization.$O: ortools/sat/optimization.cc \
  ortools/linear_solver/linear_expr.h \
  ortools/gen/ortools/linear_solver/linear_solver.pb.h \
  ortools/gen/ortools/util/optional_boolean.pb.h \
- ortools/port/proto_utils.h ortools/util/file_util.h \
- ortools/base/recordio.h ortools/sat/boolean_problem.h \
+ ortools/port/proto_utils.h ortools/sat/boolean_problem.h \
  ortools/algorithms/sparse_permutation.h \
  ortools/gen/ortools/sat/cp_model.pb.h ortools/sat/simplification.h \
  ortools/base/adjustable_priority_queue.h ortools/sat/encoding.h \
@@ -2557,7 +2556,15 @@ objs/linear_solver/clp_interface.$O: \
 	$(CCC) $(CFLAGS) -c $(SRC_DIR)$Sortools$Slinear_solver$Sclp_interface.cc $(OBJ_OUT)$(OBJ_DIR)$Slinear_solver$Sclp_interface.$O
 
 objs/linear_solver/cplex_interface.$O: \
- ortools/linear_solver/cplex_interface.cc | $(OBJ_DIR)/linear_solver
+ ortools/linear_solver/cplex_interface.cc ortools/base/integral_types.h \
+ ortools/base/logging.h ortools/base/macros.h ortools/base/timer.h \
+ ortools/base/basictypes.h ortools/linear_solver/linear_solver.h \
+ ortools/base/commandlineflags.h ortools/base/status.h \
+ ortools/gen/ortools/glop/parameters.pb.h \
+ ortools/linear_solver/linear_expr.h \
+ ortools/gen/ortools/linear_solver/linear_solver.pb.h \
+ ortools/gen/ortools/util/optional_boolean.pb.h \
+ ortools/port/proto_utils.h | $(OBJ_DIR)/linear_solver
 	$(CCC) $(CFLAGS) -c $(SRC_DIR)$Sortools$Slinear_solver$Scplex_interface.cc $(OBJ_OUT)$(OBJ_DIR)$Slinear_solver$Scplex_interface.$O
 
 objs/linear_solver/glop_interface.$O: \
@@ -2635,19 +2642,11 @@ objs/linear_solver/linear_solver.$O: \
  ortools/linear_solver/linear_expr.h \
  ortools/gen/ortools/linear_solver/linear_solver.pb.h \
  ortools/gen/ortools/util/optional_boolean.pb.h \
- ortools/port/proto_utils.h ortools/util/file_util.h ortools/base/file.h \
- ortools/base/recordio.h ortools/port/file.h ortools/base/accurate_sum.h \
- ortools/base/canonical_errors.h ortools/base/map_util.h \
- ortools/base/stl_util.h ortools/linear_solver/model_exporter.h \
- ortools/base/hash.h ortools/linear_solver/model_validator.h \
- ortools/util/fp_utils.h ortools/lp_data/lp_data.h \
- ortools/base/int_type.h ortools/base/int_type_indexed_vector.h \
- ortools/lp_data/lp_types.h ortools/util/bitset.h \
- ortools/lp_data/sparse.h ortools/lp_data/permutation.h \
- ortools/base/random.h ortools/util/return_macros.h \
- ortools/lp_data/sparse_column.h ortools/lp_data/sparse_vector.h \
- ortools/graph/iterators.h ortools/lp_data/mps_reader.h \
- ortools/lp_data/proto_utils.h | $(OBJ_DIR)/linear_solver
+ ortools/port/proto_utils.h ortools/port/file.h \
+ ortools/base/accurate_sum.h ortools/base/canonical_errors.h \
+ ortools/base/map_util.h ortools/base/stl_util.h \
+ ortools/linear_solver/model_exporter.h ortools/base/hash.h \
+ ortools/linear_solver/model_validator.h ortools/util/fp_utils.h | $(OBJ_DIR)/linear_solver
 	$(CCC) $(CFLAGS) -c $(SRC_DIR)$Sortools$Slinear_solver$Slinear_solver.cc $(OBJ_OUT)$(OBJ_DIR)$Slinear_solver$Slinear_solver.$O
 
 objs/linear_solver/model_exporter.$O: \
@@ -3314,8 +3313,7 @@ objs/constraint_solver/routing_search.$O: \
  ortools/util/vector_or_function.h ortools/linear_solver/linear_solver.h \
  ortools/linear_solver/linear_expr.h \
  ortools/gen/ortools/linear_solver/linear_solver.pb.h \
- ortools/port/proto_utils.h ortools/util/file_util.h \
- ortools/base/recordio.h | $(OBJ_DIR)/constraint_solver
+ ortools/port/proto_utils.h | $(OBJ_DIR)/constraint_solver
 	$(CCC) $(CFLAGS) -c $(SRC_DIR)$Sortools$Sconstraint_solver$Srouting_search.cc $(OBJ_OUT)$(OBJ_DIR)$Sconstraint_solver$Srouting_search.$O
 
 objs/constraint_solver/sched_constraints.$O: \
