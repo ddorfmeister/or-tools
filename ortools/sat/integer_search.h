@@ -17,10 +17,44 @@
 #include <vector>
 
 #include "ortools/sat/integer.h"
+#include "ortools/sat/sat_base.h"
 #include "ortools/sat/sat_solver.h"
 
 namespace operations_research {
 namespace sat {
+
+// Returns decision corresponding to var at its lower bound. Returns
+// kNoLiteralIndex if the variable is fixed.
+LiteralIndex AtMinValue(IntegerVariable var, Model* model);
+
+// Returns decision corresponding to var >= lb + max(1, (ub - lb) / 2). It also
+// CHECKs that the variable is not fixed.
+LiteralIndex GreaterOrEqualToMiddleValue(IntegerVariable var, Model* model);
+
+// This method first tries var <= value. If this does not reduce the domain it
+// tries var >= value. If that also does not reduce the domain then returns
+// kNoLiteralIndex.
+LiteralIndex SplitAroundGivenValue(IntegerVariable positive_var,
+                                   IntegerValue value, Model* model);
+
+// Returns decision corresponding to var <= round(lp_value). If the variable
+// does not appear in the LP, this method returns kNoLiteralIndex.
+LiteralIndex SplitAroundLpValue(IntegerVariable var, Model* model);
+
+struct SolutionDetails {
+  int64 solution_count = 0;
+  gtl::ITIVector<IntegerVariable, IntegerValue> best_solution;
+
+  // Loads the solution in best_solution using lower bounds from integer trail.
+  void LoadFromTrail(const IntegerTrail& integer_trail);
+};
+
+// Returns decision corresponding to var <= best_solution[var]. If no solution
+// has been found, this method returns kNoLiteralIndex. This was suggested in
+// paper: "Solution-Based Phase Saving for CP" (2018) by Emir Demirovic,
+// Geoffrey Chu, and Peter J. Stuckey
+LiteralIndex SplitDomainUsingBestSolutionValue(IntegerVariable var,
+                                               Model* model);
 
 // Decision heuristic for SolveIntegerProblemWithLazyEncoding(). Returns a
 // function that will return the literal corresponding to the fact that the
@@ -57,14 +91,58 @@ std::function<LiteralIndex()> FollowHint(
 std::function<LiteralIndex()> SequentialSearch(
     std::vector<std::function<LiteralIndex()>> heuristics);
 
+// Changes the value of the given decision by 'var_selection_heuristic'. We try
+// to see if the decision is "associated" with an IntegerVariable, and if it is
+// the case, we choose the new value by the first 'value_selection_heuristics'
+// that is applicable (return value != kNoLiteralIndex). If none of the
+// heuristics are applicable then the given decision by
+// 'var_selection_heuristic' is returned.
+std::function<LiteralIndex()> SequentialValueSelection(
+    std::vector<std::function<LiteralIndex(IntegerVariable)>>
+        value_selection_heuristics,
+    std::function<LiteralIndex()> var_selection_heuristic, Model* model);
+
+// Changes the value of the given decision by 'var_selection_heuristic'. The new
+// value is chosen in the following way:
+// 1) If the LP part is large and the LP solution is exploitable, change the
+//    value to LP solution value.
+// 2) Else if there is at least one solution found, change the value to the best
+//    solution value.
+// If none of the above heuristics are applicable then it uses the default value
+// given in the decision.
+std::function<LiteralIndex()> IntegerValueSelectionHeuristic(
+    std::function<LiteralIndex()> var_selection_heuristic, Model* model);
+
 // Returns the LiteralIndex advised by the underliying SAT solver.
 std::function<LiteralIndex()> SatSolverHeuristic(Model* model);
 
-// Uses the given heuristics, but when the LP relaxation has an integer
-// solution, use it to change the polarity of the next decision so that the
-// solver will check if this integer LP solution satisfy all the constraints.
-std::function<LiteralIndex()> ExploitIntegerLpSolution(
+// Gets the branching variable using pseudo costs and combines it with a value
+// for branching.
+std::function<LiteralIndex()> PseudoCost(Model* model);
+
+// Uses the given heuristics, but when the LP relaxation has a solution, use it
+// to change the polarity of the next decision. This is only done for integer
+// solutions unless 'exploit_all_lp_solution' parameter is set to true. For
+// integer solution the solver will check if this integer LP solution satisfy
+// all the constraints.
+//
+// Note that we only do this if a big enough percentage of the problem variables
+// appear in the LP relaxation.
+std::function<LiteralIndex()> ExploitLpSolution(
     std::function<LiteralIndex()> heuristic, Model* model);
+
+// Similar to ExploitLpSolution(). Takes LiteralIndex as base decision and
+// changes change the returned decision to AtLpValue() of the underlying integer
+// variable if LP solution is exploitable.
+LiteralIndex ExploitLpSolution(const LiteralIndex decision, Model* model);
+
+// Returns true if we currently have an available LP solution that is
+// "exploitable" according to the current parameters.
+bool LpSolutionIsExploitable(Model* model);
+
+// Returns true if the number of variables in the linearized part is at least
+// 0.5 times the total number of variables.
+bool LinearizedPartIsLarge(Model* model);
 
 // A restart policy that restarts every k failures.
 std::function<bool()> RestartEveryKFailures(int k, SatSolver* solver);
@@ -115,10 +193,14 @@ struct ObjectiveSynchronizationHelper {
   IntegerVariable objective_var = kNoIntegerVariable;
   std::function<double()> get_external_best_objective = nullptr;
   std::function<double()> get_external_best_bound = nullptr;
-  bool broadcast_lower_bound = false;
+  std::function<void(double, double)> set_external_best_bound = nullptr;
+  bool parallel_mode = false;
 
   int64 UnscaledObjective(double value) const {
     return static_cast<int64>(std::round(value / scaling_factor - offset));
+  }
+  double ScaledObjective(int64 value) const {
+    return (value + offset) * scaling_factor;
   }
 };
 
@@ -128,10 +210,15 @@ struct LevelZeroCallbackHelper {
   std::vector<std::function<bool()>> callbacks;
 };
 
-// Prints out a new solution in a fixed format.
+// Prints out a new optimization solution in a fixed format.
 void LogNewSolution(const std::string& event_or_solution_count,
                     double time_in_seconds, double obj_lb, double obj_ub,
                     const std::string& solution_info);
+
+// Prints out a new satisfiability solution in a fixed format.
+void LogNewSatSolution(const std::string& event_or_solution_count,
+                       double time_in_seconds,
+                       const std::string& solution_info);
 
 }  // namespace sat
 }  // namespace operations_research

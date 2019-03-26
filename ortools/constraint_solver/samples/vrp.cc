@@ -1,4 +1,4 @@
-// Copyright 2018 Google LLC
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -11,164 +11,146 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
+// [START program]
+// [START import]
 #include <vector>
-#include <cmath>
-#include "ortools/base/logging.h"
 #include "ortools/constraint_solver/routing.h"
+#include "ortools/constraint_solver/routing_enums.pb.h"
 #include "ortools/constraint_solver/routing_index_manager.h"
 #include "ortools/constraint_solver/routing_parameters.h"
+// [END import]
 
 namespace operations_research {
-  class DataProblem {
-    private:
-      std::vector<std::vector<int>> locations_;
-
-    public:
-      DataProblem() {
-        locations_ = {
-          {4, 4},
-          {2, 0}, {8, 0},
-          {0, 1}, {1, 1},
-          {5, 2}, {7, 2},
-          {3, 3}, {6, 3},
-          {5, 5}, {8, 5},
-          {1, 6}, {2, 6},
-          {3, 7}, {6, 7},
-          {0, 8}, {7, 8}
-        };
-
-        // Compute locations in meters using the block dimension defined as follow
-        // Manhattan average block: 750ft x 264ft -> 228m x 80m
-        // here we use: 114m x 80m city block
-        // src: https://nyti.ms/2GDoRIe "NY Times: Know Your distance"
-        std::array<int, 2> cityBlock = {228/2, 80};
-        for (auto &i: locations_) {
-          i[0] = i[0] * cityBlock[0];
-          i[1] = i[1] * cityBlock[1];
-        }
-      }
-
-      std::size_t GetVehicleNumber() const { return 4;}
-      const std::vector<std::vector<int>>& GetLocations() const { return locations_;}
-      RoutingIndexManager::NodeIndex GetDepot() const { return RoutingIndexManager::NodeIndex(0);}
+// [START data_model]
+struct DataModel {
+  const std::vector<std::vector<int64>> distance_matrix{
+      {0, 548, 776, 696, 582, 274, 502, 194, 308, 194, 536, 502, 388, 354, 468,
+       776, 662},
+      {548, 0, 684, 308, 194, 502, 730, 354, 696, 742, 1084, 594, 480, 674,
+       1016, 868, 1210},
+      {776, 684, 0, 992, 878, 502, 274, 810, 468, 742, 400, 1278, 1164, 1130,
+       788, 1552, 754},
+      {696, 308, 992, 0, 114, 650, 878, 502, 844, 890, 1232, 514, 628, 822,
+       1164, 560, 1358},
+      {582, 194, 878, 114, 0, 536, 764, 388, 730, 776, 1118, 400, 514, 708,
+       1050, 674, 1244},
+      {274, 502, 502, 650, 536, 0, 228, 308, 194, 240, 582, 776, 662, 628, 514,
+       1050, 708},
+      {502, 730, 274, 878, 764, 228, 0, 536, 194, 468, 354, 1004, 890, 856, 514,
+       1278, 480},
+      {194, 354, 810, 502, 388, 308, 536, 0, 342, 388, 730, 468, 354, 320, 662,
+       742, 856},
+      {308, 696, 468, 844, 730, 194, 194, 342, 0, 274, 388, 810, 696, 662, 320,
+       1084, 514},
+      {194, 742, 742, 890, 776, 240, 468, 388, 274, 0, 342, 536, 422, 388, 274,
+       810, 468},
+      {536, 1084, 400, 1232, 1118, 582, 354, 730, 388, 342, 0, 878, 764, 730,
+       388, 1152, 354},
+      {502, 594, 1278, 514, 400, 776, 1004, 468, 810, 536, 878, 0, 114, 308,
+       650, 274, 844},
+      {388, 480, 1164, 628, 514, 662, 890, 354, 696, 422, 764, 114, 0, 194, 536,
+       388, 730},
+      {354, 674, 1130, 822, 708, 628, 856, 320, 662, 388, 730, 308, 194, 0, 342,
+       422, 536},
+      {468, 1016, 788, 1164, 1050, 514, 514, 662, 320, 274, 388, 650, 536, 342,
+       0, 764, 194},
+      {776, 868, 1552, 560, 674, 1050, 1278, 742, 1084, 810, 1152, 274, 388,
+       422, 764, 0, 798},
+      {662, 1210, 754, 1358, 1244, 708, 480, 856, 514, 468, 354, 844, 730, 536,
+       194, 798, 0},
   };
+  const int num_vehicles = 4;
+  const RoutingIndexManager::NodeIndex depot{0};
+};
+// [END data_model]
 
-  /*! @brief Manhattan distance implemented as a callback.
-   * @details It uses an array of positions and
-   * computes the Manhattan distance between the two positions of two different indices.*/
-  class ManhattanDistance {
-    private:
-      std::vector<std::vector<int64>> distances_;
-    public:
-      ManhattanDistance(const DataProblem& data) {
-      // Precompute distance between location to have distance callback in O(1)
-      distances_ = std::vector<std::vector<int64>>(
-          data.GetLocations().size(),
-          std::vector<int64>(
-            data.GetLocations().size(),
-            0LL));
-      const int size = data.GetLocations().size();
-      for (int fromNode = 0; fromNode < size; fromNode++) {
-        for (int toNode = 0; toNode < size; toNode++) {
-          if (fromNode != toNode)
-            distances_[fromNode][toNode] =
-              std::abs(data.GetLocations()[toNode][0] -
-                       data.GetLocations()[fromNode][0]) +
-              std::abs(data.GetLocations()[toNode][1] -
-                       data.GetLocations()[fromNode][1]);
-        }
-      }
+// [START solution_printer]
+//! @brief Print the solution.
+//! @param[in] data Data of the problem.
+//! @param[in] manager Index manager used.
+//! @param[in] routing Routing solver used.
+//! @param[in] solution Solution found by the solver.
+void PrintSolution(const DataModel& data, const RoutingIndexManager& manager,
+                   const RoutingModel& routing, const Assignment& solution) {
+  LOG(INFO) << "Objective: " << solution.ObjectiveValue();
+  int64 total_distance{0};
+  for (int vehicle_id = 0; vehicle_id < data.num_vehicles; ++vehicle_id) {
+    int64 index = routing.Start(vehicle_id);
+    LOG(INFO) << "Route for Vehicle " << vehicle_id << ":";
+    int64 distance{0};
+    std::stringstream route;
+    while (routing.IsEnd(index) == false) {
+      route << manager.IndexToNode(index).value() << " -> ";
+      int64 previous_index = index;
+      index = solution.Value(routing.NextVar(index));
+      distance += const_cast<RoutingModel&>(routing).GetArcCostForVehicle(
+          previous_index, index, int64{vehicle_id});
     }
-
-    //! @brief Returns the manhattan distance between the two nodes.
-    int64 operator()(RoutingIndexManager::NodeIndex FromNode, RoutingIndexManager::NodeIndex ToNode) {
-      return distances_[FromNode.value()][ToNode.value()];
-    }
-  };
-
-  //! @brief Add distance Dimension.
-  //! @param[in] data Data of the problem.
-  //! @param[in] callback transit cost callback.
-  //! @param[in, out] routing Routing solver used.
-  static void AddDistanceDimension(const DataProblem& data, const int callback, RoutingModel* routing) {
-    std::string distance("Distance");
-    routing->AddDimension(
-        callback,
-        0,  // null slack
-        3000, // maximum distance per vehicle
-        true, // start cumul to zero
-        distance);
-    RoutingDimension* distanceDimension = routing->GetMutableDimension(distance);
-    // Try to minimize the max distance among vehicles.
-    // /!\ It doesn't mean the standard deviation is minimized
-    distanceDimension->SetGlobalSpanCostCoefficient(100);
+    LOG(INFO) << route.str() << manager.IndexToNode(index).value();
+    LOG(INFO) << "Distance of the route: " << distance << "m";
+    total_distance += distance;
   }
+  LOG(INFO) << "Total distance of all routes: " << total_distance << "m";
+  LOG(INFO) << "";
+  LOG(INFO) << "Advanced usage:";
+  LOG(INFO) << "Problem solved in " << routing.solver()->wall_time() << "ms";
+}
+// [END solution_printer]
 
-  //! @brief Print the solution
-  //! @param[in] data Data of the problem.
-  //! @param[in] manager Index manager used.
-  //! @param[in] routing Routing solver used.
-  //! @param[in] solution Solution found by the solver.
-  void PrintSolution(
-      const DataProblem& data,
-      const RoutingIndexManager& manager,
-      const RoutingModel& routing,
-      const Assignment& solution) {
-    LOG(INFO) << "Objective: " << solution.ObjectiveValue();
-    // Inspect solution.
-    for (int i=0; i < data.GetVehicleNumber(); ++i) {
-      int64 index = routing.Start(i);
-      LOG(INFO) << "Route for Vehicle " << i << ":";
-      int64 distance = 0LL;
-      std::stringstream route;
-      while (routing.IsEnd(index) == false) {
-        route << manager.IndexToNode(index).value() << " -> ";
-        int64 previous_index = index;
-        index = solution.Value(routing.NextVar(index));
-        distance += const_cast<RoutingModel&>(routing).GetArcCostForVehicle(previous_index, index, i);
-      }
-      LOG(INFO) << route.str() << manager.IndexToNode(index).value();
-      LOG(INFO) << "Distance of the route: " << distance << "m";
-    }
-    LOG(INFO) << "";
-    LOG(INFO) << "Advanced usage:";
-    LOG(INFO) << "Problem solved in " << routing.solver()->wall_time() << "ms";
-  }
+void Vrp() {
+  // Instantiate the data problem.
+  // [START data]
+  DataModel data;
+  // [END data]
 
-  void Solve() {
-    // Instantiate the data problem.
-    DataProblem data;
+  // Create Routing Index Manager
+  // [START index_manager]
+  RoutingIndexManager manager(data.distance_matrix.size(), data.num_vehicles,
+                              data.depot);
+  // [END index_manager]
 
-    // Create Routing Index Manager & Routing Model
-    RoutingIndexManager manager(
-        data.GetLocations().size(),
-        data.GetVehicleNumber(),
-        data.GetDepot());
-    RoutingModel routing(manager);
+  // Create Routing Model.
+  // [START routing_model]
+  RoutingModel routing(manager);
+  // [END routing_model]
 
-    // Define weight of each edge
-    ManhattanDistance distance(data);
-    const int vehicle_cost = routing.RegisterTransitCallback(
-        [&distance, &manager](int64 fromIndex, int64 toIndex) -> int64 {
-        return distance(manager.IndexToNode(fromIndex), manager.IndexToNode(toIndex));
-        });
-    routing.SetArcCostEvaluatorOfAllVehicles(vehicle_cost);
-    AddDistanceDimension(data, vehicle_cost, &routing);
+  // Create and register a transit callback.
+  // [START transit_callback]
+  const int transit_callback_index = routing.RegisterTransitCallback(
+      [&data, &manager](int64 from_index, int64 to_index) -> int64 {
+        // Convert from routing variable Index to distance matrix NodeIndex.
+        auto from_node = manager.IndexToNode(from_index).value();
+        auto to_node = manager.IndexToNode(to_index).value();
+        return data.distance_matrix[from_node][to_node];
+      });
+  // [END transit_callback]
 
-    // Setting first solution heuristic (cheapest addition).
-    RoutingSearchParameters searchParameters = DefaultRoutingSearchParameters();
-    searchParameters.set_first_solution_strategy(
-        FirstSolutionStrategy::PATH_CHEAPEST_ARC);
+  // Define cost of each arc.
+  // [START arc_cost]
+  routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index);
+  // [END arc_cost]
 
-    const Assignment* solution = routing.SolveWithParameters(searchParameters);
-    PrintSolution(data, manager, routing, *solution);
-  }
+  // Setting first solution heuristic.
+  // [START parameters]
+  RoutingSearchParameters searchParameters = DefaultRoutingSearchParameters();
+  searchParameters.set_first_solution_strategy(
+      FirstSolutionStrategy::PATH_CHEAPEST_ARC);
+  // [END parameters]
+
+  // Solve the problem.
+  // [START solve]
+  const Assignment* solution = routing.SolveWithParameters(searchParameters);
+  // [END solve]
+
+  // Print solution on console.
+  // [START print_solution]
+  PrintSolution(data, manager, routing, *solution);
+  // [END print_solution]
+}
 }  // namespace operations_research
 
 int main(int argc, char** argv) {
-  google::InitGoogleLogging(argv[0]);
-  FLAGS_logtostderr = 1;
-  operations_research::Solve();
-  return 0;
+  operations_research::Vrp();
+  return EXIT_SUCCESS;
 }
+// [END program]

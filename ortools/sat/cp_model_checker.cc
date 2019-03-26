@@ -86,8 +86,7 @@ std::string ValidateIntegerVariable(const CpModelProto& model, int v) {
 std::string ValidateArgumentReferencesInConstraint(const CpModelProto& model,
                                                    int c) {
   const ConstraintProto& ct = model.constraints(c);
-  IndexReferences references;
-  AddReferencesUsedByConstraint(ct, &references);
+  IndexReferences references = GetReferencesUsedByConstraint(ct);
   for (const int v : references.variables) {
     if (!VariableReferenceIsValid(model, v)) {
       return absl::StrCat("Out of bound integer variable ", v,
@@ -108,7 +107,7 @@ std::string ValidateArgumentReferencesInConstraint(const CpModelProto& model,
                           ProtobufShortDebugString(ct));
     }
   }
-  for (const int i : references.intervals) {
+  for (const int i : UsedIntervals(ct)) {
     if (i < 0 || i >= model.constraints_size()) {
       return absl::StrCat("Out of bound interval ", i, " in constraint #", c,
                           " : ", ProtobufShortDebugString(ct));
@@ -420,6 +419,10 @@ class ConstraintChecker {
            Value(interval2.end()) <= Value(interval1.start());
   }
 
+  bool IntervalIsEmpty(const IntervalConstraintProto& interval) {
+    return Value(interval.start()) == Value(interval.end());
+  }
+
   bool NoOverlap2DConstraintIsFeasible(const CpModelProto& model,
                                        const ConstraintProto& ct) {
     const auto& arg = ct.no_overlap_2d();
@@ -446,7 +449,15 @@ class ConstraintChecker {
         const auto& yi = *enforced_intervals_xy[i].second;
         const auto& xj = *enforced_intervals_xy[j].first;
         const auto& yj = *enforced_intervals_xy[j].second;
-        if (!IntervalsAreDisjoint(xi, xj) && !IntervalsAreDisjoint(yi, yj)) {
+        if (!IntervalsAreDisjoint(xi, xj) && !IntervalsAreDisjoint(yi, yj) &&
+            !IntervalIsEmpty(xi) && !IntervalIsEmpty(xj) &&
+            !IntervalIsEmpty(yi) && !IntervalIsEmpty(yj)) {
+          VLOG(1) << "Interval " << i << "(x=[" << Value(xi.start()) << ", "
+                  << Value(xi.end()) << "], y=[" << Value(yi.start()) << ", "
+                  << Value(yi.end()) << "]) and " << j << "("
+                  << "(x=[" << Value(xj.start()) << ", " << Value(xj.end())
+                  << "], y=[" << Value(yj.start()) << ", " << Value(yj.end())
+                  << "]) are not disjoint.";
           return false;
         }
       }
@@ -456,7 +467,7 @@ class ConstraintChecker {
 
   bool CumulativeConstraintIsFeasible(const CpModelProto& model,
                                       const ConstraintProto& ct) {
-    // TODO(user, fdid): Improve complexity for large durations.
+    // TODO(user,user): Improve complexity for large durations.
     const int64 capacity = Value(ct.cumulative().capacity());
     const int num_intervals = ct.cumulative().intervals_size();
     absl::flat_hash_map<int64, int64> usage;
@@ -497,22 +508,22 @@ class ConstraintChecker {
     return ct.table().negated();
   }
 
-  bool AutomataConstraintIsFeasible(const ConstraintProto& ct) {
+  bool AutomatonConstraintIsFeasible(const ConstraintProto& ct) {
     // Build the transition table {tail, label} -> head.
     absl::flat_hash_map<std::pair<int64, int64>, int64> transition_map;
-    const int num_transitions = ct.automata().transition_tail().size();
+    const int num_transitions = ct.automaton().transition_tail().size();
     for (int i = 0; i < num_transitions; ++i) {
-      transition_map[{ct.automata().transition_tail(i),
-                      ct.automata().transition_label(i)}] =
-          ct.automata().transition_head(i);
+      transition_map[{ct.automaton().transition_tail(i),
+                      ct.automaton().transition_label(i)}] =
+          ct.automaton().transition_head(i);
     }
 
-    // Walk the automata.
-    int64 current_state = ct.automata().starting_state();
-    const int num_steps = ct.automata().vars_size();
+    // Walk the automaton.
+    int64 current_state = ct.automaton().starting_state();
+    const int num_steps = ct.automaton().vars_size();
     for (int i = 0; i < num_steps; ++i) {
       const std::pair<int64, int64> key = {current_state,
-                                           Value(ct.automata().vars(i))};
+                                           Value(ct.automaton().vars(i))};
       if (!gtl::ContainsKey(transition_map, key)) {
         return false;
       }
@@ -520,7 +531,7 @@ class ConstraintChecker {
     }
 
     // Check we are now in a final state.
-    for (const int64 final : ct.automata().final_states()) {
+    for (const int64 final : ct.automaton().final_states()) {
       if (current_state == final) return true;
     }
     return false;
@@ -782,8 +793,8 @@ bool SolutionIsFeasible(const CpModelProto& model,
       case ConstraintProto::ConstraintCase::kTable:
         is_feasible = checker.TableConstraintIsFeasible(ct);
         break;
-      case ConstraintProto::ConstraintCase::kAutomata:
-        is_feasible = checker.AutomataConstraintIsFeasible(ct);
+      case ConstraintProto::ConstraintCase::kAutomaton:
+        is_feasible = checker.AutomatonConstraintIsFeasible(ct);
         break;
       case ConstraintProto::ConstraintCase::kCircuit:
         is_feasible = checker.CircuitConstraintIsFeasible(ct);

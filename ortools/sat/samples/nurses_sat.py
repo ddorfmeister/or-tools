@@ -115,6 +115,7 @@ def main():
     # Creates the solver and solve.
     # [START solve]
     solver = cp_model.CpSolver()
+    solver.parameters.linearization_level = 0
     # Display the first five solutions.
     a_few_solutions = range(5)
     solution_printer = NursesPartialSolutionPrinter(
@@ -127,7 +128,7 @@ def main():
     print('Statistics')
     print('  - conflicts       : %i' % solver.NumConflicts())
     print('  - branches        : %i' % solver.NumBranches())
-    print('  - wall time       : %f ms' % solver.WallTime())
+    print('  - wall time       : %f s' % solver.WallTime())
     print('  - solutions found : %i' % solution_printer.solution_count())
 
 

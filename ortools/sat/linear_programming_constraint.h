@@ -155,6 +155,22 @@ class LinearProgrammingConstraint : public PropagatorInterface,
   // Solve the LP, returns false if something went wrong in the LP solver.
   bool SolveLp();
 
+  // Add a "MIR" cut obtained by first taking the linear combination of the
+  // row of the matrix according to "integer_multipliers" and then trying
+  // some integer rounding heuristic.
+  void AddCutFromConstraints(
+      const std::string& name,
+      const std::vector<std::pair<glop::RowIndex, IntegerValue>>&
+          integer_multipliers);
+
+  // Computes and adds Chvatal-Gomory cuts.
+  // This can currently only be called at the root node.
+  void AddCGCuts();
+
+  // Computes and adds MIR cuts.
+  // This can currently only be called at the root node.
+  void AddMirCuts();
+
   // The factor to multiply a CP variable value to get the value in the LP side.
   glop::Fractional CpToLpScalingFactor(glop::ColIndex col) const;
   glop::Fractional LpToCpScalingFactor(glop::ColIndex col) const;
@@ -185,34 +201,53 @@ class LinearProgrammingConstraint : public PropagatorInterface,
   // world and then make them integer (eventually multiplying them by a new
   // scaling factor returned in *scaling).
   //
-  // Then computes from this linear combination of the integer rows of the LP a
-  // new constraint of the form "sum terms <= upper_bound". Note that whatever
-  // lp_multipliers are given, the constraint will always be an exact valid
-  // constraint of the problem.
+  // Note that this will loose some precision, but our subsequent computation
+  // will still be exact as it will work for any set of multiplier.
+  std::vector<std::pair<glop::RowIndex, IntegerValue>> ScaleLpMultiplier(
+      bool take_objective_into_account, bool use_constraint_status,
+      const glop::DenseColumn& dense_lp_multipliers, glop::Fractional* scaling,
+      int max_pow = 62) const;
+
+  // Computes from an integer linear combination of the integer rows of the LP a
+  // new constraint of the form "sum terms <= upper_bound". All computation are
+  // exact here.
   //
   // Returns false if we encountered any integer overflow.
   bool ComputeNewLinearConstraint(
-      bool take_objective_into_account,  // For the scaling.
-      const glop::DenseColumn& dense_lp_multipliers, glop::Fractional* scaling,
+      bool use_constraint_status,
+      const std::vector<std::pair<glop::RowIndex, IntegerValue>>&
+          integer_multipliers,
+      gtl::ITIVector<glop::ColIndex, IntegerValue>* dense_terms,
+      IntegerValue* upper_bound) const;
+
+  // Simple heuristic to try to minimize |upper_bound - ImpliedLB(terms)|. This
+  // should make the new constraint tighter and correct a bit the imprecision
+  // introduced by rounding the floating points values.
+  void AdjustNewLinearConstraint(
+      std::vector<std::pair<glop::RowIndex, IntegerValue>>* integer_multipliers,
       gtl::ITIVector<glop::ColIndex, IntegerValue>* dense_terms,
       IntegerValue* upper_bound) const;
 
   // Shortcut for an integer linear expression type.
   using LinearExpression = std::vector<std::pair<glop::ColIndex, IntegerValue>>;
 
+  // Converts a dense represenation of a linear constraint to a sparse one
+  // expressed in terms of IntegerVariable.
+  LinearConstraint ConvertToLinearConstraint(
+      const gtl::ITIVector<glop::ColIndex, IntegerValue>& dense_vector,
+      IntegerValue upper_bound);
+
   // Compute the implied lower bound of the given linear expression using the
   // current variable bound. Return kMinIntegerValue in case of overflow.
-  IntegerValue GetImpliedLowerBound(const LinearExpression& terms) const;
+  IntegerValue GetImpliedLowerBound(const LinearConstraint& terms) const;
 
   // Tests for possible overflow in the propagation of the given linear
   // constraint.
-  bool PossibleOverflow(const std::vector<IntegerVariable>& vars,
-                        const std::vector<IntegerValue>& coeffs,
-                        IntegerValue ub);
+  bool PossibleOverflow(const LinearConstraint& constraint);
 
   // Fills integer_reason_ with the reason for the implied lower bound of the
   // given linear expression. We relax the reason if we have some slack.
-  void SetImpliedLowerBoundReason(const LinearExpression& terms,
+  void SetImpliedLowerBoundReason(const LinearConstraint& terms,
                                   IntegerValue slack);
 
   // Fills the deductions vector with reduced cost deductions that can be made
@@ -251,7 +286,9 @@ class LinearProgrammingConstraint : public PropagatorInterface,
     LinearExpression terms;
   };
   LinearExpression integer_objective_;
+  IntegerValue objective_infinity_norm_ = IntegerValue(0);
   std::vector<LinearConstraintInternal> integer_lp_;
+  gtl::ITIVector<glop::RowIndex, IntegerValue> infinity_norms_;
 
   // Underlying LP solver API.
   glop::LinearProgram lp_data_;
@@ -313,13 +350,16 @@ class LinearProgrammingConstraint : public PropagatorInterface,
   // solution is no longer optimal though.
   std::vector<double> level_zero_lp_solution_;
 
+  // True if the last time we solved the exact same LP at level zero, no cuts
+  // and no lazy constraints where added.
+  bool lp_at_level_zero_is_final_ = false;
+
   // Same as lp_solution_ but this vector is indexed differently.
   LinearProgrammingConstraintLpSolution& expanded_lp_solution_;
 
   // Linear constraints cannot be created or modified after this is registered.
   bool lp_constraint_is_registered_ = false;
 
-  int num_cuts_ = 0;
   std::vector<CutGenerator> cut_generators_;
 
   // Store some statistics for HeuristicLPReducedCostAverage().

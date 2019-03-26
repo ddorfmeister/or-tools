@@ -76,8 +76,8 @@ def CPIsFunSat():
     model.AddAllDifferent(letters)
 
     # CP + IS + FUN = TRUE
-    model.Add(c * base + p + i * base + s + f * base * base + u * base +
-              n == t * base * base * base + r * base * base + u * base + e)
+    model.Add(c * base + p + i * base + s + f * base * base + u * base + n ==
+              t * base * base * base + r * base * base + u * base + e)
     # [END constraints]
 
     # [START solve]
@@ -92,7 +92,7 @@ def CPIsFunSat():
     print('  - status          : %s' % solver.StatusName(status))
     print('  - conflicts       : %i' % solver.NumConflicts())
     print('  - branches        : %i' % solver.NumBranches())
-    print('  - wall time       : %f ms' % solver.WallTime())
+    print('  - wall time       : %f s' % solver.WallTime())
     print('  - solutions found : %i' % solution_printer.solution_count())
 
 

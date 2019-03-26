@@ -43,16 +43,13 @@ inline int EnforcementLiteral(const ConstraintProto& ct) {
 
 // Collects all the references used by a constraint. This function is used in a
 // few places to have a "generic" code dealing with constraints. Note that the
-// enforcement_literal is NOT counted here.
-//
-// TODO(user): replace this by constant version of the Apply...() functions?
+// enforcement_literal is NOT counted here and that the vectors can have
+// duplicates.
 struct IndexReferences {
-  absl::flat_hash_set<int> variables;
-  absl::flat_hash_set<int> literals;
-  absl::flat_hash_set<int> intervals;
+  std::vector<int> variables;
+  std::vector<int> literals;
 };
-void AddReferencesUsedByConstraint(const ConstraintProto& ct,
-                                   IndexReferences* output);
+IndexReferences GetReferencesUsedByConstraint(const ConstraintProto& ct);
 
 // Applies the given function to all variables/literals/intervals indices of the
 // constraint. This function is used in a few places to have a "generic" code
@@ -69,7 +66,11 @@ void ApplyToAllIntervalIndices(const std::function<void(int*)>& function,
 std::string ConstraintCaseName(ConstraintProto::ConstraintCase constraint_case);
 
 // Returns the sorted list of variables used by a constraint.
+// Note that this include variable used as a literal.
 std::vector<int> UsedVariables(const ConstraintProto& ct);
+
+// Returns the sorted list of interval used by a constraint.
+std::vector<int> UsedIntervals(const ConstraintProto& ct);
 
 // Returns true if a proto.domain() contain the given value.
 // The domain is expected to be encoded as a sorted disjoint interval list.

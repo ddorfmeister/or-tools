@@ -369,9 +369,23 @@ test_cc_constraint_solver_samples: \
  rcc_nurses_cp \
  rcc_rabbits_and_pheasants_cp \
  rcc_simple_ls_program \
+ rcc_simple_cp_program \
  rcc_simple_routing_program \
  rcc_tsp \
- rcc_vrp
+ rcc_tsp_cities \
+ rcc_tsp_circuit_board \
+ rcc_tsp_distance_matrix \
+ rcc_vrp \
+ rcc_vrp_capacity \
+ rcc_vrp_drop_nodes \
+ rcc_vrp_global_span \
+ rcc_vrp_initial_routes \
+ rcc_vrp_pickup_delivery \
+ rcc_vrp_pickup_delivery_fifo \
+ rcc_vrp_pickup_delivery_lifo \
+ rcc_vrp_resources \
+ rcc_vrp_starts_ends \
+ rcc_vrp_time_windows \
 
 .PHONY: test_cc_sat_samples # Build and Run all C++ Sat Samples (located in ortools/sat/samples)
 test_cc_sat_samples: \
@@ -379,6 +393,7 @@ test_cc_sat_samples: \
  rcc_bool_or_sample_sat \
  rcc_channeling_sample_sat \
  rcc_cp_is_fun_sat \
+ rcc_earliness_tardiness_cost_sample_sat \
  rcc_interval_sample_sat \
  rcc_literal_sample_sat \
  rcc_no_overlap_sample_sat \
@@ -390,6 +405,7 @@ test_cc_sat_samples: \
  rcc_simple_sat_program \
  rcc_solve_and_print_intermediate_solutions_sample_sat \
  rcc_solve_with_time_limit_sample_sat \
+ rcc_step_function_sample_sat \
  rcc_stop_after_n_solutions_sample_sat
 
 .PHONY: check_cc_pimpl
@@ -625,7 +641,8 @@ ifeq ($(UNIX_PROTOBUF_DIR),$(OR_TOOLS_TOP)/dependencies/install)
 endif
 ifeq ($(UNIX_ABSL_DIR),$(OR_TOOLS_TOP)/dependencies/install)
 	$(COPYREC) dependencies$Sinstall$Sinclude$Sabsl "$(DESTDIR)$(prefix)$Sinclude"
-	$(COPYREC) $(subst /,$S,$(_ABSL_LIB_DIR))$Slibabsl* "$(DESTDIR)$(prefix)$Slib"
+	-$(COPYREC) $(subst /,$S,$(_ABSL_STATIC_LIB_DIR))$Slibabsl* "$(DESTDIR)$(prefix)$Slib"
+	-$(COPYREC) $(subst /,$S,$(_ABSL_LIB_DIR))$Slibabsl* "$(DESTDIR)$(prefix)$Slib"
 endif
 ifeq ($(UNIX_CBC_DIR),$(OR_TOOLS_TOP)/dependencies/install)
 	$(COPYREC) dependencies$Sinstall$Sinclude$Scoin "$(DESTDIR)$(prefix)$Sinclude"

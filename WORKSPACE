@@ -1,48 +1,51 @@
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository", "new_git_repository")
+
 #Import the gflags files.
-git_repository(
-    name   = "com_github_gflags_gflags",
-    remote = "https://github.com/gflags/gflags.git",
-    tag = "v2.2.2",
+http_archive(
+    name = "com_github_gflags_gflags",
+    sha256 = "19713a36c9f32b33df59d1c79b4958434cb005b5b47dc5400a7a4b078111d9b5",
+    strip_prefix = "gflags-2.2.2",
+    urls = ["https://github.com/gflags/gflags/archive/v2.2.2.zip"],
 )
 
 #Import the glog files.
-new_git_repository(
-    name   = "com_github_glog_glog",
-    build_file = "//bazel:glog.BUILD",
+git_repository(
+    name = "com_github_glog_glog",
+    commit = "41f4bf9cbc3e8995d628b459f6a239df43c2b84a",
     remote = "https://github.com/google/glog.git",
-    tag = "v0.3.5",
 )
 
-# proto_library rules implicitly depend on @com_google_protobuf//:protoc,
-# which is the proto-compiler.
-# This statement defines the @com_google_protobuf repo.
 http_archive(
     name = "com_google_protobuf",
-    urls = ["https://github.com/google/protobuf/archive/b4b0e304be5a68de3d0ee1af9b286f958750f5e4.zip"],
-    strip_prefix = "protobuf-b4b0e304be5a68de3d0ee1af9b286f958750f5e4",
-    sha256 = "ff771a662fb6bd4d3cc209bcccedef3e93980a49f71df1e987f6afa3bcdcba3a",
+    sha256 = "9510dd2afc29e7245e9e884336f848c8a6600a14ae726adb6befdb4f786f0be2",
+    strip_prefix = "protobuf-3.6.1.3",
+    urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.6.1.3.zip"],
 )
 
-# cc_proto_library rules implicitly depend on
-# @com_google_protobuf_cc//:cc_toolchain, which is the C++ proto runtime
-# (base classes and common utilities).
 http_archive(
     name = "com_google_protobuf_cc",
-    urls = ["https://github.com/google/protobuf/archive/b4b0e304be5a68de3d0ee1af9b286f958750f5e4.zip"],
-    strip_prefix = "protobuf-b4b0e304be5a68de3d0ee1af9b286f958750f5e4",
-    sha256 = "ff771a662fb6bd4d3cc209bcccedef3e93980a49f71df1e987f6afa3bcdcba3a",
+    sha256 = "9510dd2afc29e7245e9e884336f848c8a6600a14ae726adb6befdb4f786f0be2",
+    strip_prefix = "protobuf-3.6.1.3",
+    urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.6.1.3.zip"],
 )
 
-new_http_archive(
+http_archive(
     name = "gtest",
-    url = "https://github.com/google/googletest/archive/release-1.8.0.zip",
     build_file = "//bazel:gtest.BUILD",
     strip_prefix = "googletest-release-1.8.0/googletest",
+    url = "https://github.com/google/googletest/archive/release-1.8.0.zip",
 )
 
-new_http_archive(
+git_repository(
+    name = "com_google_absl",
+    commit = "bf29470",
+    remote = "https://github.com/abseil/abseil-cpp.git",
+)
+
+http_archive(
     name = "glpk",
-    url = "http://ftp.gnu.org/gnu/glpk/glpk-4.52.tar.gz",
-    sha256 = "9a5dab356268b4f177c33e00ddf8164496dc2434e83bd1114147024df983a3bb",
     build_file = "//bazel:glpk.BUILD",
+    sha256 = "9a5dab356268b4f177c33e00ddf8164496dc2434e83bd1114147024df983a3bb",
+    url = "http://ftp.gnu.org/gnu/glpk/glpk-4.52.tar.gz",
 )

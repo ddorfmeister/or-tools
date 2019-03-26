@@ -16,11 +16,25 @@
 
 #include <vector>
 
+#include "absl/types/span.h"
 #include "ortools/base/integral_types.h"
 #include "ortools/sat/cp_model.pb.h"
+#include "ortools/sat/model.h"
 
 namespace operations_research {
 namespace sat {
+
+// Neighborhood returned by Neighborhood generators.
+struct Neighborhood {
+  // True if the CpModelProto below is not the same as the base model.
+  // This is not expected to happen often but allows to handle this case
+  // properly.
+  bool is_reduced;
+
+  // Relaxed model. Any feasible solution to this "local" model should be a
+  // feasible solution to the base model too.
+  CpModelProto cp_model;
+};
 
 // Contains pre-computed information about a given CpModelProto that is meant
 // to be used to generate LNS neighborhood. This class can be shared between
@@ -34,13 +48,13 @@ class NeighborhoodGeneratorHelper {
 
   // Returns the LNS fragment where the given variables are fixed to the value
   // they take in the given solution.
-  CpModelProto FixGivenVariables(
+  Neighborhood FixGivenVariables(
       const CpSolverResponse& initial_solution,
       const std::vector<int>& variables_to_fix) const;
 
   // Returns the LNS fragment which will relax all inactive variables and all
   // variables in relaxed_variables.
-  CpModelProto RelaxGivenVariables(
+  Neighborhood RelaxGivenVariables(
       const CpSolverResponse& initial_solution,
       const std::vector<int>& relaxed_variables) const;
 
@@ -60,6 +74,13 @@ class NeighborhoodGeneratorHelper {
     return var_to_constraint_;
   }
 
+  // Returns all the constraints indices of a given type.
+  const absl::Span<const int> TypeToConstraints(
+      ConstraintProto::ConstraintCase type) const {
+    if (type >= type_to_constraints_.size()) return {};
+    return absl::MakeSpan(type_to_constraints_[type]);
+  }
+
   // The initial problem.
   const CpModelProto& ModelProto() const { return model_proto_; }
 
@@ -68,6 +89,9 @@ class NeighborhoodGeneratorHelper {
   bool IsConstant(int var) const;
 
   const CpModelProto& model_proto_;
+
+  // Constraints by types.
+  std::vector<std::vector<int>> type_to_constraints_;
 
   // Variable-Constraint graph.
   std::vector<std::vector<int>> constraint_to_var_;
@@ -103,7 +127,7 @@ class NeighborhoodGenerator {
   // CPModelProto should also be valid solution to the same initial model.
   //
   // This function should be thread-safe.
-  virtual CpModelProto Generate(const CpSolverResponse& initial_solution,
+  virtual Neighborhood Generate(const CpSolverResponse& initial_solution,
                                 int64 seed, double difficulty) const = 0;
 
   // Returns a short description of the generator.
@@ -120,7 +144,7 @@ class SimpleNeighborhoodGenerator : public NeighborhoodGenerator {
   explicit SimpleNeighborhoodGenerator(
       NeighborhoodGeneratorHelper const* helper, const std::string& name)
       : NeighborhoodGenerator(name, helper) {}
-  CpModelProto Generate(const CpSolverResponse& initial_solution, int64 seed,
+  Neighborhood Generate(const CpSolverResponse& initial_solution, int64 seed,
                         double difficulty) const final;
 };
 
@@ -133,7 +157,7 @@ class VariableGraphNeighborhoodGenerator : public NeighborhoodGenerator {
   explicit VariableGraphNeighborhoodGenerator(
       NeighborhoodGeneratorHelper const* helper, const std::string& name)
       : NeighborhoodGenerator(name, helper) {}
-  CpModelProto Generate(const CpSolverResponse& initial_solution, int64 seed,
+  Neighborhood Generate(const CpSolverResponse& initial_solution, int64 seed,
                         double difficulty) const final;
 };
 
@@ -146,8 +170,61 @@ class ConstraintGraphNeighborhoodGenerator : public NeighborhoodGenerator {
   explicit ConstraintGraphNeighborhoodGenerator(
       NeighborhoodGeneratorHelper const* helper, const std::string& name)
       : NeighborhoodGenerator(name, helper) {}
-  CpModelProto Generate(const CpSolverResponse& initial_solution, int64 seed,
+  Neighborhood Generate(const CpSolverResponse& initial_solution, int64 seed,
                         double difficulty) const final;
+};
+
+// Helper method for the scheduling neighborhood generators. Returns the model
+// as neighborhood for the given set of intervals to relax. For each no_overlap
+// constraints, it adds strict relation order between the non-relaxed intervals.
+Neighborhood GenerateSchedulingNeighborhoodForRelaxation(
+    const absl::Span<const int> intervals_to_relax,
+    const CpSolverResponse& initial_solution,
+    const NeighborhoodGeneratorHelper& helper);
+
+// Only make sense for scheduling problem. This select a random set of interval
+// of the problem according to the difficulty. Then, for each no_overlap
+// constraints, it adds strict relation order between the non-relaxed intervals.
+//
+// TODO(user): Also deal with cumulative constraint.
+class SchedulingNeighborhoodGenerator : public NeighborhoodGenerator {
+ public:
+  explicit SchedulingNeighborhoodGenerator(
+      NeighborhoodGeneratorHelper const* helper, const std::string& name)
+      : NeighborhoodGenerator(name, helper) {}
+
+  Neighborhood Generate(const CpSolverResponse& initial_solution, int64 seed,
+                        double difficulty) const final;
+};
+
+// Similar to SchedulingNeighborhoodGenerator except the set of intervals that
+// are relaxed are from a specific random time interval.
+class SchedulingTimeWindowNeighborhoodGenerator : public NeighborhoodGenerator {
+ public:
+  explicit SchedulingTimeWindowNeighborhoodGenerator(
+      NeighborhoodGeneratorHelper const* helper, const std::string& name)
+      : NeighborhoodGenerator(name, helper) {}
+
+  Neighborhood Generate(const CpSolverResponse& initial_solution, int64 seed,
+                        double difficulty) const final;
+};
+
+// Generates a neighborhood by fixing the variables who have same solution value
+// as their linear relaxation. This was published in "Exploring relaxation
+// induced neighborhoods to improve MIP solutions" 2004 by E. Danna et.
+// TODO(user): This simulates RINS only at root node. Try to exploit it on
+// other nodes as well.
+class RelaxationInducedNeighborhoodGenerator : public NeighborhoodGenerator {
+ public:
+  explicit RelaxationInducedNeighborhoodGenerator(
+      NeighborhoodGeneratorHelper const* helper, const Model& model,
+      const std::string& name)
+      : NeighborhoodGenerator(name, helper), model_(model) {}
+
+  Neighborhood Generate(const CpSolverResponse& initial_solution, int64 seed,
+                        double difficulty) const final;
+
+  const Model& model_;
 };
 
 }  // namespace sat

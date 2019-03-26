@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26124.0
 MinimumVisualStudioVersion = 15.0.26124.0
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BalanceGroupSat", "BalanceGroupSat.csproj", "{974394DA-B666-4FA5-B363-067484B1C801}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "cscvrptw", "cscvrptw.csproj", "{A6E213B7-2AC0-4759-B3D5-BB0FDD714915}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "csflow", "csflow.csproj", "{F623C1BE-13CC-4342-A32A-8CD881A199D9}"
@@ -27,6 +29,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JobshopFt06Sat", "JobshopFt
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JobshopSat", "JobshopSat.csproj", "{ED4158FF-7E32-4C4A-A3AB-20DC162CAB6E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NetworkRoutingSat", "NetworkRoutingSat.csproj", "{132ECD45-2448-4084-B253-D49F0FAB2EB3}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NursesSat", "NursesSat.csproj", "{8525EA38-48C0-4D64-A1DE-FE54F5287B4F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShiftSchedulingSat", "ShiftSchedulingSat.csproj", "{D309FF10-3D42-446A-8402-62A941C0783A}"
@@ -34,10 +38,6 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpeakerSchedulingSat", "SpeakerSchedulingSat.csproj", "{E3114C14-B906-4FC8-A5B4-A815E70575B4}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TaskSchedulingSat", "TaskSchedulingSat.csproj", "{768FEDB1-45A7-4051-847F-2D9B4C0E2FA3}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "tsp", "tsp.csproj", "{4BBD7983-D698-4638-B690-9D27BC44CD64}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "vrp", "vrp.csproj", "{DA83621B-14F2-4D26-8DD2-4E79D684DFA7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -52,6 +52,18 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{974394DA-B666-4FA5-B363-067484B1C801}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{974394DA-B666-4FA5-B363-067484B1C801}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{974394DA-B666-4FA5-B363-067484B1C801}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{974394DA-B666-4FA5-B363-067484B1C801}.Debug|x64.Build.0 = Debug|Any CPU
+		{974394DA-B666-4FA5-B363-067484B1C801}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{974394DA-B666-4FA5-B363-067484B1C801}.Debug|x86.Build.0 = Debug|Any CPU
+		{974394DA-B666-4FA5-B363-067484B1C801}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{974394DA-B666-4FA5-B363-067484B1C801}.Release|Any CPU.Build.0 = Release|Any CPU
+		{974394DA-B666-4FA5-B363-067484B1C801}.Release|x64.ActiveCfg = Release|Any CPU
+		{974394DA-B666-4FA5-B363-067484B1C801}.Release|x64.Build.0 = Release|Any CPU
+		{974394DA-B666-4FA5-B363-067484B1C801}.Release|x86.ActiveCfg = Release|Any CPU
+		{974394DA-B666-4FA5-B363-067484B1C801}.Release|x86.Build.0 = Release|Any CPU
 		{4A059795-058D-42BF-A6B8-922A0F9A39C3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{4A059795-058D-42BF-A6B8-922A0F9A39C3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4A059795-058D-42BF-A6B8-922A0F9A39C3}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -256,6 +268,18 @@ Global
 		{921FA31F-F200-4144-8925-7F93F5BC7062}.Release|x64.Build.0 = Release|Any CPU
 		{921FA31F-F200-4144-8925-7F93F5BC7062}.Release|x86.ActiveCfg = Release|Any CPU
 		{921FA31F-F200-4144-8925-7F93F5BC7062}.Release|x86.Build.0 = Release|Any CPU
+		{132ECD45-2448-4084-B253-D49F0FAB2EB3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{132ECD45-2448-4084-B253-D49F0FAB2EB3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{132ECD45-2448-4084-B253-D49F0FAB2EB3}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{132ECD45-2448-4084-B253-D49F0FAB2EB3}.Debug|x64.Build.0 = Debug|Any CPU
+		{132ECD45-2448-4084-B253-D49F0FAB2EB3}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{132ECD45-2448-4084-B253-D49F0FAB2EB3}.Debug|x86.Build.0 = Debug|Any CPU
+		{132ECD45-2448-4084-B253-D49F0FAB2EB3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{132ECD45-2448-4084-B253-D49F0FAB2EB3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{132ECD45-2448-4084-B253-D49F0FAB2EB3}.Release|x64.ActiveCfg = Release|Any CPU
+		{132ECD45-2448-4084-B253-D49F0FAB2EB3}.Release|x64.Build.0 = Release|Any CPU
+		{132ECD45-2448-4084-B253-D49F0FAB2EB3}.Release|x86.ActiveCfg = Release|Any CPU
+		{132ECD45-2448-4084-B253-D49F0FAB2EB3}.Release|x86.Build.0 = Release|Any CPU		
 		{D309FF10-3D42-446A-8402-62A941C0783A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{D309FF10-3D42-446A-8402-62A941C0783A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D309FF10-3D42-446A-8402-62A941C0783A}.Debug|x64.ActiveCfg = Debug|Any CPU

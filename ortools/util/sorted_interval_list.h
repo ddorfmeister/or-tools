@@ -87,6 +87,9 @@ class Domain {
   // Returns true if this is the empty set.
   bool IsEmpty() const;
 
+  // Returns the number of elements in the domain. It is capped at kint64max.
+  int64 Size() const;
+
   // Returns the domain min/max value.
   // This Checks that the domain is not empty.
   int64 Min() const;
@@ -120,9 +123,12 @@ class Domain {
   //
   // Note that because the resulting domain will only contains multiple of
   // coeff, the size of intervals.size() can become really large. If it is
-  // larger than a fixed constant, success will be set to false and an empty
-  // Domain will be returned.
-  Domain MultiplicationBy(int64 coeff, bool* success) const;
+  // larger than a fixed constant, exact will be set to false and the result
+  // will be set to ContinuousMultiplicationBy(coeff).
+  Domain MultiplicationBy(int64 coeff, bool* exact = nullptr) const;
+
+  // If NumIntervals() is too large, this return a superset of the domain.
+  Domain RelaxIfTooComplex() const;
 
   // Returns a super-set of MultiplicationBy() to avoid the explosion in the
   // representation size. This behaves as if we replace the set D of
@@ -185,6 +191,10 @@ class Domain {
   }
 
  private:
+  // Some functions relax the domain when its "complexity" (i.e NumIntervals())
+  // become too large.
+  static const int kDomainComplexityLimit = 100;
+
   // Invariant: will always satisfy IntervalsAreSortedAndNonAdjacent().
   //
   // Note that we use InlinedVector for the common case of single interal

@@ -37,6 +37,7 @@ class SolutionCallback {
 
   void Run(const operations_research::sat::CpSolverResponse& response) const {
     response_ = response;
+    has_response_ = true;
     OnSolutionCallback();
   }
 
@@ -82,8 +83,11 @@ class SolutionCallback {
     return response_;
   }
 
+  bool HasResponse() const { return has_response_; }
+
  private:
   mutable CpSolverResponse response_;
+  mutable bool has_response_ = false;
   mutable std::atomic<bool> stopped_;
 };
 

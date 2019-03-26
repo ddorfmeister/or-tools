@@ -1,4 +1,4 @@
-// Copyright 2018 Google LLC
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -10,161 +10,131 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import static java.lang.Math.abs;
 
+// [START program]
+// [START import]
 import com.google.ortools.constraintsolver.Assignment;
 import com.google.ortools.constraintsolver.FirstSolutionStrategy;
-import com.google.ortools.constraintsolver.LongLongToLong;
-import com.google.ortools.constraintsolver.RoutingDimension;
 import com.google.ortools.constraintsolver.RoutingIndexManager;
 import com.google.ortools.constraintsolver.RoutingModel;
-import com.google.ortools.constraintsolver.RoutingDimension;
 import com.google.ortools.constraintsolver.RoutingSearchParameters;
 import com.google.ortools.constraintsolver.main;
-import java.io.*;
+import java.util.logging.Logger;
+// [END import]
 
-class DataProblem {
-  private int[][] locations_;
-
-  public DataProblem() {
-    locations_ =
-        new int[][] {
-          {4, 4}, {2, 0}, {8, 0}, {0, 1}, {1, 1}, {5, 2}, {7, 2}, {3, 3}, {6, 3}, {5, 5}, {8, 5},
-          {1, 6}, {2, 6}, {3, 7}, {6, 7}, {0, 8}, {7, 8}
-        };
-
-    // Compute locations in meters using the block dimension defined as follow
-    // Manhattan average block: 750ft x 264ft -> 228m x 80m
-    // here we use: 114m x 80m city block
-    // src: https://nyti.ms/2GDoRIe "NY Times: Know Your distance"
-    int[] cityBlock = {228 / 2, 80};
-    for (int i = 0; i < locations_.length; i++) {
-      locations_[i][0] = locations_[i][0] * cityBlock[0];
-      locations_[i][1] = locations_[i][1] * cityBlock[1];
-    }
-  }
-
-  /// @brief Gets the number of vehicles.
-  public int getVehicleNumber() {
-    return 4;
-  }
-  /// @brief Gets the locations.
-  public int[][] getLocations() {
-    return locations_;
-  }
-  /// @brief Gets the number of locations.
-  public int getLocationNumber() {
-    return locations_.length;
-  }
-  /// @brief Gets the depot NodeIndex.
-  public int getDepot() {
-    return 0;
-  }
-}
-
-/// @brief Manhattan distance implemented as a callback.
-/// @details It uses an array of positions and computes
-/// the Manhattan distance between the two positions of
-/// two different indices.
-class ManhattanDistance extends LongLongToLong {
-  private int[][] distances;
-  private RoutingIndexManager indexManager;
-
-  public ManhattanDistance(DataProblem data, RoutingIndexManager manager) {
-    // precompute distance between location to have distance callback in O(1)
-    distances = new int[data.getLocationNumber()][data.getLocationNumber()];
-    indexManager = manager;
-    for (int fromNode = 0; fromNode < data.getLocationNumber(); ++fromNode) {
-      for (int toNode = 0; toNode < data.getLocationNumber(); ++toNode) {
-        if (fromNode == toNode) distances[fromNode][toNode] = 0;
-        else
-          distances[fromNode][toNode] =
-              abs(data.getLocations()[toNode][0] - data.getLocations()[fromNode][0])
-                  + abs(data.getLocations()[toNode][1] - data.getLocations()[fromNode][1]);
-      }
-    }
-  }
-
-  @Override
-  /// @brief Returns the manhattan distance between the two nodes.
-  public long run(long fromIndex, long toIndex) {
-    int fromNode = indexManager.indexToNode(fromIndex);
-    int toNode = indexManager.indexToNode(toIndex);
-    return distances[fromNode][toNode];
-  }
-}
-
-class Vrp {
+/** Minimal VRP.*/
+public class Vrp {
   static {
     System.loadLibrary("jniortools");
   }
 
-  /// @brief Add Global Span constraint.
-  static void addDistanceDimension(RoutingModel routing, DataProblem data, int distanceIndex) {
-    String distance = "Distance";
-    routing.addDimension(
-        distanceIndex,
-        0, // null slack
-        3000, // maximum distance per vehicle
-        true, // start cumul to zero
-        distance);
-    RoutingDimension distanceDimension = routing.getDimensionOrDie(distance);
-    // Try to minimize the max distance among vehicles.
-    // /!\ It doesn't mean the standard deviation is minimized
-    distanceDimension.setGlobalSpanCostCoefficient(100);
+  private static final Logger logger = Logger.getLogger(Vrp.class.getName());
+
+  // [START data_model]
+  static class DataModel {
+    public final long[][] distanceMatrix = {
+        {0, 548, 776, 696, 582, 274, 502, 194, 308, 194, 536, 502, 388, 354, 468, 776, 662},
+        {548, 0, 684, 308, 194, 502, 730, 354, 696, 742, 1084, 594, 480, 674, 1016, 868, 1210},
+        {776, 684, 0, 992, 878, 502, 274, 810, 468, 742, 400, 1278, 1164, 1130, 788, 1552, 754},
+        {696, 308, 992, 0, 114, 650, 878, 502, 844, 890, 1232, 514, 628, 822, 1164, 560, 1358},
+        {582, 194, 878, 114, 0, 536, 764, 388, 730, 776, 1118, 400, 514, 708, 1050, 674, 1244},
+        {274, 502, 502, 650, 536, 0, 228, 308, 194, 240, 582, 776, 662, 628, 514, 1050, 708},
+        {502, 730, 274, 878, 764, 228, 0, 536, 194, 468, 354, 1004, 890, 856, 514, 1278, 480},
+        {194, 354, 810, 502, 388, 308, 536, 0, 342, 388, 730, 468, 354, 320, 662, 742, 856},
+        {308, 696, 468, 844, 730, 194, 194, 342, 0, 274, 388, 810, 696, 662, 320, 1084, 514},
+        {194, 742, 742, 890, 776, 240, 468, 388, 274, 0, 342, 536, 422, 388, 274, 810, 468},
+        {536, 1084, 400, 1232, 1118, 582, 354, 730, 388, 342, 0, 878, 764, 730, 388, 1152, 354},
+        {502, 594, 1278, 514, 400, 776, 1004, 468, 810, 536, 878, 0, 114, 308, 650, 274, 844},
+        {388, 480, 1164, 628, 514, 662, 890, 354, 696, 422, 764, 114, 0, 194, 536, 388, 730},
+        {354, 674, 1130, 822, 708, 628, 856, 320, 662, 388, 730, 308, 194, 0, 342, 422, 536},
+        {468, 1016, 788, 1164, 1050, 514, 514, 662, 320, 274, 388, 650, 536, 342, 0, 764, 194},
+        {776, 868, 1552, 560, 674, 1050, 1278, 742, 1084, 810, 1152, 274, 388, 422, 764, 0, 798},
+        {662, 1210, 754, 1358, 1244, 708, 480, 856, 514, 468, 354, 844, 730, 536, 194, 798, 0},
+    };
+    public final int vehicleNumber = 4;
+    public final int depot = 0;
   }
+  // [END data_model]
 
-  /// @brief Print the solution
+  // [START solution_printer]
+  /// @brief Print the solution.
   static void printSolution(
-      DataProblem data, RoutingModel routing, RoutingIndexManager manager, Assignment solution) {
+      DataModel data, RoutingModel routing, RoutingIndexManager manager, Assignment solution) {
     // Solution cost.
-    System.out.println("Objective : " + solution.objectiveValue());
+    logger.info("Objective : " + solution.objectiveValue());
     // Inspect solution.
-    for (int i = 0; i < data.getVehicleNumber(); ++i) {
-      System.out.println("Route for Vehicle " + i + ":");
-      long distance = 0;
-      for (long index = routing.start(i); !routing.isEnd(index); ) {
-        System.out.print(manager.indexToNode((int) index) + " -> ");
-
+    long totalDistance = 0;
+    for (int i = 0; i < data.vehicleNumber; ++i) {
+      logger.info("Route for Vehicle " + i + ":");
+      long routeDistance = 0;
+      String route = "";
+      long index = routing.start(i);
+      while (!routing.isEnd(index)) {
+        route += manager.indexToNode(index) + " -> ";
         long previousIndex = index;
         index = solution.value(routing.nextVar(index));
-        distance += routing.getArcCostForVehicle(previousIndex, index, i);
+        routeDistance += routing.getArcCostForVehicle(previousIndex, index, i);
       }
-      System.out.println(manager.indexToNode((int) routing.end(i)));
-      System.out.println("Distance of the route: " + distance + "m");
+      route += manager.indexToNode(routing.end(i));
+      logger.info(route);
+      logger.info("Distance of the route: " + routeDistance + "m");
+      totalDistance += routeDistance;
     }
+    logger.info("Total Distance of all routes: " + totalDistance + "m");
   }
+  // [END solution_printer]
 
-  /// @brief Solves the current routing problem.
-  static void solve() {
+  public static void main(String[] args) throws Exception {
     // Instantiate the data problem.
-    DataProblem data = new DataProblem();
+    // [START data]
+    final DataModel data = new DataModel();
+    // [END data]
 
-    // Create Routing Model
+    // Create Routing Index Manager
+    // [START index_manager]
     RoutingIndexManager manager =
-        new RoutingIndexManager(data.getLocationNumber(), data.getVehicleNumber(), data.getDepot());
+        new RoutingIndexManager(data.distanceMatrix.length, data.vehicleNumber, data.depot);
+    // [END index_manager]
+
+    // Create Routing Model.
+    // [START routing_model]
     RoutingModel routing = new RoutingModel(manager);
+    // [END routing_model]
 
-    // Setting the cost function.
-    // [todo]: protect callback from the GC
-    LongLongToLong distanceEvaluator = new ManhattanDistance(data, manager);
-    int distanceIndex = routing.registerTransitCallback(distanceEvaluator);
-    routing.setArcCostEvaluatorOfAllVehicles(distanceIndex);
-    addDistanceDimension(routing, data, distanceIndex);
+    // Create and register a transit callback.
+    // [START transit_callback]
+    final int transitCallbackIndex =
+        routing.registerTransitCallback((long fromIndex, long toIndex) -> {
+          // Convert from routing variable Index to user NodeIndex.
+          int fromNode = manager.indexToNode(fromIndex);
+          int toNode = manager.indexToNode(toIndex);
+          return data.distanceMatrix[fromNode][toNode];
+        });
+    // [END transit_callback]
 
-    // Setting first solution heuristic (cheapest addition).
-    RoutingSearchParameters search_parameters =
-        RoutingSearchParameters.newBuilder()
-            .mergeFrom(main.defaultRoutingSearchParameters())
+    // Define cost of each arc.
+    // [START arc_cost]
+    routing.setArcCostEvaluatorOfAllVehicles(transitCallbackIndex);
+    // [END arc_cost]
+
+    // Setting first solution heuristic.
+    // [START parameters]
+    RoutingSearchParameters searchParameters =
+        main.defaultRoutingSearchParameters()
+            .toBuilder()
             .setFirstSolutionStrategy(FirstSolutionStrategy.Value.PATH_CHEAPEST_ARC)
             .build();
+    // [END parameters]
 
-    Assignment solution = routing.solveWithParameters(search_parameters);
+    // Solve the problem.
+    // [START solve]
+    Assignment solution = routing.solveWithParameters(searchParameters);
+    // [END solve]
+
+    // Print solution on console.
+    // [START print_solution]
     printSolution(data, routing, manager, solution);
-  }
-
-  /// @brief Entry point of the program.
-  public static void main(String[] args) throws Exception {
-    solve();
+    // [END print_solution]
   }
 }
+// [END program]

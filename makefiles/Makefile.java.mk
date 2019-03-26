@@ -373,9 +373,23 @@ test_java_algorithms_samples: \
 
 .PHONY: test_java_constraint_solver_samples # Build and Run all Java CP Samples (located in ortools/constraint_solver/samples)
 test_java_constraint_solver_samples: \
+ rjava_SimpleCpProgram \
  rjava_SimpleRoutingProgram \
  rjava_Tsp \
+ rjava_TspCities \
+ rjava_TspCircuitBoard \
+ rjava_TspDistanceMatrix \
  rjava_Vrp \
+ rjava_VrpCapacity \
+ rjava_VrpDropNodes \
+ rjava_VrpGlobalSpan \
+ rjava_VrpInitialRoutes \
+ rjava_VrpPickupDelivery \
+ rjava_VrpPickupDeliveryFifo \
+ rjava_VrpPickupDeliveryLifo \
+ rjava_VrpResources \
+ rjava_VrpStartsEnds \
+ rjava_VrpTimeWindows \
 
 .PHONY: test_java_graph_samples # Build and Run all Java Graph Samples (located in ortools/graph/samples)
 test_java_graph_samples: \
@@ -392,6 +406,7 @@ test_java_sat_samples: \
  rjava_BoolOrSampleSat \
  rjava_ChannelingSampleSat \
  rjava_CpIsFunSat \
+ rjava_EarlinessTardinessCostSampleSat \
  rjava_IntervalSampleSat \
  rjava_LiteralSampleSat \
  rjava_NoOverlapSampleSat \
@@ -403,6 +418,7 @@ test_java_sat_samples: \
  rjava_SimpleSatProgram \
  rjava_SolveAndPrintIntermediateSolutionsSampleSat \
  rjava_SolveWithTimeLimitSampleSat \
+ rjava_StepFunctionSampleSat \
  rjava_StopAfterNSolutionsSampleSat
 
 .PHONY: check_java_pimpl
@@ -419,6 +435,9 @@ check_java_pimpl: \
 
 .PHONY: test_java_tests # Build and Run all Java Tests (located in examples/tests)
 test_java_tests: \
+ rjava_TestConstraintSolver \
+ rjava_TestRouting \
+ rjava_TestSat \
  rjava_TestLp
 
 .PHONY: test_java_contrib # Build and Run all Java Contrib (located in examples/contrib)
@@ -474,10 +493,8 @@ test_java_java: \
  rjava_Knapsack \
  rjava_LinearAssignmentAPI \
  rjava_LinearProgramming \
- rjava_LsApi \
  rjava_RabbitsPheasants \
- rjava_Tsp \
- rjava_Vrp
+ rjava_RandomTsp
 
 .PHONY: test_java_pimpl
 test_java_pimpl: \

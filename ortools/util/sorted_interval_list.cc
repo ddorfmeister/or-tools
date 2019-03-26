@@ -136,6 +136,18 @@ Domain Domain::FromIntervals(absl::Span<const ClosedInterval> intervals) {
 
 bool Domain::IsEmpty() const { return intervals_.empty(); }
 
+int64 Domain::Size() const {
+  int64 size = 0;
+  for (const ClosedInterval interval : intervals_) {
+    size = operations_research::CapAdd(
+        size, operations_research::CapSub(interval.end, interval.start));
+  }
+  // Because the intervals are closed on both side above, with miss 1 per
+  // interval.
+  size = operations_research::CapAdd(size, intervals_.size());
+  return size;
+}
+
 int64 Domain::Min() const {
   CHECK(!IsEmpty());
   return intervals_.front().start;
@@ -255,25 +267,33 @@ Domain Domain::AdditionWith(const Domain& domain) const {
   return result;
 }
 
-Domain Domain::MultiplicationBy(int64 coeff, bool* success) const {
-  *success = true;
+Domain Domain::RelaxIfTooComplex() const {
+  if (NumIntervals() > kDomainComplexityLimit) {
+    return Domain(Min(), Max());
+  } else {
+    return *this;
+  }
+}
+
+Domain Domain::MultiplicationBy(int64 coeff, bool* exact) const {
+  if (exact != nullptr) *exact = true;
   if (intervals_.empty() || coeff == 0) return {};
 
-  Domain result;
   const int64 abs_coeff = std::abs(coeff);
+  if (abs_coeff > 1 && Size() > kDomainComplexityLimit) {
+    if (exact != nullptr) *exact = false;
+    return ContinuousMultiplicationBy(coeff);
+  }
+
+  Domain result;
   if (abs_coeff != 1) {
-    if (CapSub(Max(), Min()) <= 1000) {
-      std::vector<int64> individual_values;
-      for (const ClosedInterval& i : intervals_) {
-        for (int v = i.start; v <= i.end; ++v) {
-          individual_values.push_back(CapProd(v, abs_coeff));
-        }
+    std::vector<int64> individual_values;
+    for (const ClosedInterval& i : intervals_) {
+      for (int v = i.start; v <= i.end; ++v) {
+        individual_values.push_back(CapProd(v, abs_coeff));
       }
-      result = Domain::FromValues(individual_values);
-    } else {
-      *success = false;
-      return {};
     }
+    result = Domain::FromValues(individual_values);
   } else {
     result = *this;
   }

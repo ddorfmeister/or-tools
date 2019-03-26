@@ -56,8 +56,8 @@ def main():
     for n in all_nurses:
         for d in all_days:
             for s in all_shifts:
-                shifts[(n, d,
-                        s)] = model.NewBoolVar('shift_n%id%is%i' % (n, d, s))
+                shifts[(n, d, s)] = model.NewBoolVar('shift_n%id%is%i' % (n, d,
+                                                                          s))
     # [END variables]
 
     # Each shift is assigned to exactly one nurse in .
@@ -113,7 +113,7 @@ def main():
     print('Statistics')
     print('  - Number of shift requests met = %i' % solver.ObjectiveValue(),
           '(out of', num_nurses * min_shifts_per_nurse, ')')
-    print('  - wall time       : %f ms' % solver.WallTime())
+    print('  - wall time       : %f s' % solver.WallTime())
     # [END print_solution]
 
 

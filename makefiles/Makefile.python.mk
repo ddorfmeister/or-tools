@@ -501,7 +501,21 @@ test_python_constraint_solver_samples: \
  rpy_simple_cp_program \
  rpy_simple_routing_program \
  rpy_tsp \
+ rpy_tsp_cities \
+ rpy_tsp_circuit_board \
+ rpy_tsp_distance_matrix \
  rpy_vrp \
+ rpy_vrp_capacity \
+ rpy_vrp_drop_nodes \
+ rpy_vrp_global_span \
+ rpy_vrp_initial_routes \
+ rpy_vrp_pickup_delivery \
+ rpy_vrp_pickup_delivery_fifo \
+ rpy_vrp_pickup_delivery_lifo \
+ rpy_vrp_resources \
+ rpy_vrp_starts_ends \
+ rpy_vrp_time_windows \
+ \
  rpy_vrpgs \
  rpy_cvrp \
  rpy_cvrp_reload \
@@ -526,6 +540,7 @@ test_python_sat_samples: \
  rpy_bool_or_sample_sat \
  rpy_channeling_sample_sat \
  rpy_cp_is_fun_sat \
+ rpy_earliness_tardiness_cost_sample_sat \
  rpy_interval_sample_sat \
  rpy_literal_sample_sat \
  rpy_minimal_jobshop_sat \
@@ -539,6 +554,7 @@ test_python_sat_samples: \
  rpy_search_for_all_solutions_sample_sat \
  rpy_solve_and_print_intermediate_solutions_sample_sat \
  rpy_solve_with_time_limit_sample_sat \
+ rpy_step_function_sample_sat \
  rpy_stop_after_n_solutions_sample_sat
 
 .PHONY: check_python_pimpl
@@ -565,6 +581,7 @@ check_python_pimpl: \
 
 .PHONY: test_python_tests # Run all Python Tests (located in examples/tests)
 test_python_tests: \
+ rpy_cp_model_test \
  rpy_test_cp_api \
  rpy_test_routing_api \
  rpy_test_lp_api
@@ -1015,7 +1032,7 @@ ifeq ($(UNIX_PROTOBUF_DIR),$(OR_TOOLS_TOP)/dependencies/install)
 	$(COPYREC) $(subst /,$S,$(_PROTOBUF_LIB_DIR))libproto* $(PYPI_ARCHIVE_TEMP_DIR)$Sortools$Sortools$S.libs
 endif
 ifeq ($(UNIX_ABSL_DIR),$(OR_TOOLS_TOP)/dependencies/install)
-	$(COPYREC) $(subst /,$S,$(_ABSL_LIB_DIR))libabsl_* $(PYPI_ARCHIVE_TEMP_DIR)$Sortools$Sortools$S.libs
+	-$(COPYREC) $(subst /,$S,$(_ABSL_LIB_DIR))$Slibabsl* $(PYPI_ARCHIVE_TEMP_DIR)$Sortools$Sortools$S.libs
 endif
 ifeq ($(UNIX_CBC_DIR),$(OR_TOOLS_TOP)/dependencies/install)
 	$(COPYREC) dependencies$Sinstall$Slib$SlibCbc* $(PYPI_ARCHIVE_TEMP_DIR)$Sortools$Sortools$S.libs

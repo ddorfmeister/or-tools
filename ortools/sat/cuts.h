@@ -35,11 +35,83 @@ namespace sat {
 //   their negation.
 // - Only return cuts in term of the same variables or their negation.
 struct CutGenerator {
+  std::string type;
   std::vector<IntegerVariable> vars;
   std::function<std::vector<LinearConstraint>(
       const gtl::ITIVector<IntegerVariable, double>& lp_values)>
       generate_cuts;
 };
+
+// Visible for testing. Returns a function f on integers such that:
+// - f is non-decreasing.
+// - f is super-additive: f(a) + f(b) <= f(a + b)
+// - 1 <= f(divisor) <= max_scaling
+// - For all x, f(x * divisor) = x * f(divisor)
+// - For all x, f(x * divisor + remainder) = x * f(divisor)
+//
+// Preconditions:
+// - 0 <= remainder < divisor.
+// - 1 <= max_scaling.
+//
+// This is used in IntegerRoundingCut() and is responsible for "strengthening"
+// the cut. Just taking f(x) = x / divisor result in the non-strengthened cut
+// and using any function that stricly dominate this one is better.
+//
+// Algorithm:
+// - We first scale by a factor t so that rhs_remainder >= divisor / 2.
+// - Then, if use_letchford_lodi_version is true, we use the function described
+//   in "Strenghtening Chvatal-Gomory cuts and Gomory fractional cuts", Adam N.
+//   Letchfrod, Andrea Lodi.
+// - Otherwise, we use a generalization of this which is a discretized version
+//   of the classical MIR rounding function that only take the value of the
+//   form "an_integer / max_scaling". As max_scaling goes to infinity, this
+//   converge to the real-valued MIR function.
+//
+// Note that for each value of max_scaling we will get a different function.
+// And that there is no dominance relation between any of these functions. So
+// it could be nice to try to generate a cut using different values of
+// max_scaling.
+std::function<IntegerValue(IntegerValue)> GetSuperAdditiveRoundingFunction(
+    bool use_letchford_lodi_version, IntegerValue rhs_remainder,
+    IntegerValue divisor, IntegerValue max_scaling);
+
+// Given an upper bounded linear constraint, this function tries to transform it
+// to a valid cut that violate the given LP solution using integer rounding.
+// Note that the returned cut might not always violate the LP solution, in which
+// case it can be discarded.
+//
+// What this does is basically take the integer division of the constraint by an
+// integer. If the coefficients where doubles, this would be the same as scaling
+// the constraint and then rounding. We choose the coefficient of the most
+// fractional variable (rescaled by its coefficient) as the divisor, but there
+// are other possible alternatives.
+//
+// Note that if the constraint is tight under the given lp solution, and if
+// there is a unique variable not at one of its bounds and fractional, then we
+// are guaranteed to generate a cut that violate the current LP solution. This
+// should be the case for Chvatal-Gomory base constraints modulo our loss of
+// precision while doing exact integer computations.
+//
+// Precondition:
+// - We assumes that the given initial constraint is tight using the given lp
+//   values. This could be relaxed, but for now it should always be the case, so
+//   we log a message and abort if not, to ease debugging.
+// - The IntegerVariable of the cuts are not used here. We assumes that the
+//   first three vectors are in one to one correspondance with the initial order
+//   of the variable in the cut.
+//
+// TODO(user): There is a bunch of heuristic involved here, and we could spend
+// more effort tunning them. In particular, one can try many heuristics and keep
+// the best looking cut (or more than one). This is not on the critical code
+// path, so we can spend more effort in finding good cuts.
+struct RoundingOptions {
+  bool use_mir = false;
+  IntegerValue max_scaling = IntegerValue(60);
+};
+void IntegerRoundingCut(RoundingOptions options, std::vector<double> lp_values,
+                        std::vector<IntegerValue> lower_bounds,
+                        std::vector<IntegerValue> upper_bounds,
+                        LinearConstraint* cut);
 
 // If a variable is away from its upper bound by more than value 1.0, then it
 // cannot be part of a cover that will violate the lp solution. This method

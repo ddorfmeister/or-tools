@@ -11,13 +11,8 @@ function checkenv() {
 		swig -version
 	fi
 	if [ "${BUILDER}" == cmake ] || [ "${LANGUAGE}" == python3 ];then
-	  if [ "${TRAVIS_OS_NAME}" == linux ];then
-		  python3.6 --version
-		  python3.6 -m pip --version
-		else
-		  python3.7 --version
-		  python3.7 -m pip --version
-		fi
+    python3.7 --version
+    python3.7 -m pip --version
 	elif [ "${LANGUAGE}" == python2 ]; then
 		python2.7 --version
 		python2.7 -m pip --version
@@ -42,7 +37,7 @@ if [ "${BUILDER}" == make ];then
     elif [ "${LANGUAGE}" == python2 ]; then
       make detect UNIX_PYTHON_VER=2.7
     elif [ "${LANGUAGE}" == python3 ]; then
-      make detect UNIX_PYTHON_VER=3.6
+      make detect UNIX_PYTHON_VER=3.7
     elif [ "${LANGUAGE}" == java ]; then
       make detect JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
     elif [ "${LANGUAGE}" == dotnet ] ; then
@@ -53,6 +48,9 @@ if [ "${BUILDER}" == make ];then
     if [ "${LANGUAGE}" == python2 ] || [ "${LANGUAGE}"  == python3 ]; then
       make python --jobs=4
       make test_python --jobs=4
+    elif [ "${LANGUAGE}" == java ]; then
+      make java --jobs=4
+      make test_java --jobs=1
     else
       make "${LANGUAGE}" --jobs=4
       make test_"${LANGUAGE}" --jobs=4
@@ -61,6 +59,7 @@ if [ "${BUILDER}" == make ];then
       make test_fz --jobs=2
     fi
   elif [ "${TRAVIS_OS_NAME}" == osx ];then
+    export PATH="/usr/local/opt/ccache/libexec:$PATH"
     if [ "${LANGUAGE}" == dotnet ]; then
       # Installer changes path but won't be picked up in current terminal session
       # Need to explicitly add location
@@ -81,6 +80,9 @@ if [ "${BUILDER}" == make ];then
     if [ "${LANGUAGE}" == python2 ] || [ "${LANGUAGE}"  == python3 ]; then
       make python --jobs=4
       make test_python --jobs=4
+    elif [ "${LANGUAGE}" == java ]; then
+      make java --jobs=4
+      make test_java --jobs=1
     else
       make "${LANGUAGE}" --jobs=4
       make test_"${LANGUAGE}" --jobs=4
@@ -96,16 +98,32 @@ fi
 #############
 if [ "${BUILDER}" == cmake ];then
   if [ "${TRAVIS_OS_NAME}" == linux ];then
+    # Add clang support in ccache
+    if [[ "${CC}" == "clang" ]]; then
+      sudo ln -s ../../bin/ccache /usr/lib/ccache/clang
+      export CFLAGS="-Qunused-arguments $CFLAGS"
+    fi
+    if [[ "${CXX}" == "clang++" ]]; then
+      sudo ln -s ../../bin/ccache /usr/lib/ccache/clang++
+      export CXXFLAGS="-Qunused-arguments $CXXFLAGS"
+    fi
+
     export PATH="${HOME}"/swig/bin:"${PATH}"
-    pyenv global system 3.6
+    pyenv global system 3.7
     checkenv
     cmake -H. -Bbuild || true
     cmake --build build --target all -- --jobs=4
     cmake --build build --target test -- CTEST_OUTPUT_ON_FAILURE=1
   elif [ "${TRAVIS_OS_NAME}" == osx ];then
+    export PATH="/usr/local/opt/ccache/libexec:$PATH"
     checkenv
     cmake -H. -Bbuild || true
     cmake --build build --target all -- --jobs=4
     cmake --build build --target test -- CTEST_OUTPUT_ON_FAILURE=1
   fi
+fi
+
+if [ "${BUILDER}" == bazel ]; then
+  bazel build --curses=no --copt='-Wno-sign-compare' //...:all
+  bazel test -c opt --curses=no --copt='-Wno-sign-compare' //...:all
 fi

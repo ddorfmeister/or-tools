@@ -131,8 +131,8 @@ class LinearExpression(object):
             elif isinstance(expr, IntVar):
                 coeffs[expr] += coef
             elif isinstance(expr, _NotBooleanVariable):
-                raise TypeError(
-                    'Cannot interpret literals in a linear expression.')
+                constant += coef
+                coeffs[expr.Not()] -= coef
             else:
                 raise TypeError('Unrecognized linear expression: ' + str(expr))
 
@@ -140,6 +140,11 @@ class LinearExpression(object):
 
     def __hash__(self):
         return object.__hash__(self)
+
+    def __abs__(self):
+        raise NotImplementedError(
+            'calling abs() on a LinearExpression is not supported, '
+            'please use cp_model.AddAbsEquality')
 
     def __add__(self, expr):
         return _SumArray([self, expr])
@@ -169,13 +174,19 @@ class LinearExpression(object):
         return _ProductCst(self, arg)
 
     def __div__(self, _):
-        raise NotImplementedError('LinearExpression.__div__')
+        raise NotImplementedError(
+            'calling / on a LinearExpression is not supported, '
+            'please use cp_model.AddDivisionEquality')
 
     def __truediv__(self, _):
-        raise NotImplementedError('LinearExpression.__truediv__')
+        raise NotImplementedError(
+            'calling // on a LinearExpression is not supported, '
+            'please use cp_model.AddDivisionEquality')
 
     def __mod__(self, _):
-        raise NotImplementedError('LinearExpression.__mod__')
+        raise NotImplementedError(
+            'calling %% on a LinearExpression is not supported, '
+            'please use cp_model.AddModuloEquality')
 
     def __neg__(self):
         return _ProductCst(self, -1)
@@ -328,7 +339,12 @@ class IntVar(LinearExpression):
         self.__negation = None
 
     def Index(self):
+        """Returns the index of the variable in the model."""
         return self.__index
+
+    def Proto(self):
+        """Returns the variable protobuf."""
+        return self.__var
 
     def __str__(self):
         return self.__var.name
@@ -466,9 +482,11 @@ class Constraint(object):
         return self
 
     def Index(self):
+        """Returns the index of the constraint in the model."""
         return self.__index
 
-    def ConstraintProto(self):
+    def Proto(self):
+        """Returns the constraint protobuf."""
         return self.__constraint
 
 
@@ -504,7 +522,12 @@ class IntervalVar(object):
             self.__ct.name = name
 
     def Index(self):
+        """Returns the index of the interval constraint in the model."""
         return self.__index
+
+    def Proto(self):
+        """Returns the interval protobuf."""
+        return self.__ct.interval
 
     def __str__(self):
         return self.__ct.name
@@ -764,7 +787,7 @@ class CpModel(object):
     and 'transition' is the label of an arc from 'head' to 'tail',
     corresponding to the value of one variable in the list of variables.
 
-    This automata will be unrolled into a flow with n + 1 phases. Each phase
+    This automaton will be unrolled into a flow with n + 1 phases. Each phase
     contains the possible states of the automaton. The first state contains the
     initial state. The last phase contains the final states.
 
@@ -782,10 +805,10 @@ class CpModel(object):
 
     Args:
       transition_variables: A non empty list of variables whose values
-        correspond to the labels of the arcs traversed by the automata.
-      starting_state: The initial state of the automata.
+        correspond to the labels of the arcs traversed by the automaton.
+      starting_state: The initial state of the automaton.
       final_states: A non empty list of admissible final states.
-      transition_triples: A list of transition for the automata, in the
+      transition_triples: A list of transition for the automaton, in the
         following format (current_state, variable_value, next_state).
 
     Returns:
@@ -798,33 +821,33 @@ class CpModel(object):
 
         if not transition_variables:
             raise ValueError(
-                'AddAutomata expects a non empty transition_variables '
+                'AddAutomaton expects a non empty transition_variables '
                 'array')
         if not final_states:
-            raise ValueError('AddAutomata expects some final states')
+            raise ValueError('AddAutomaton expects some final states')
 
         if not transition_triples:
-            raise ValueError('AddAutomata expects some transtion triples')
+            raise ValueError('AddAutomaton expects some transtion triples')
 
         ct = Constraint(self.__model.constraints)
         model_ct = self.__model.constraints[ct.Index()]
-        model_ct.automata.vars.extend(
+        model_ct.automaton.vars.extend(
             [self.GetOrMakeIndex(x) for x in transition_variables])
         cp_model_helper.AssertIsInt64(starting_state)
-        model_ct.automata.starting_state = starting_state
+        model_ct.automaton.starting_state = starting_state
         for v in final_states:
             cp_model_helper.AssertIsInt64(v)
-            model_ct.automata.final_states.append(v)
+            model_ct.automaton.final_states.append(v)
         for t in transition_triples:
             if len(t) != 3:
-                raise TypeError('Tuple ' + str(t) +
-                                ' has the wrong arity (!= 3)')
+                raise TypeError(
+                    'Tuple ' + str(t) + ' has the wrong arity (!= 3)')
             cp_model_helper.AssertIsInt64(t[0])
             cp_model_helper.AssertIsInt64(t[1])
             cp_model_helper.AssertIsInt64(t[2])
-            model_ct.automata.transition_tail.append(t[0])
-            model_ct.automata.transition_label.append(t[1])
-            model_ct.automata.transition_head.append(t[2])
+            model_ct.automaton.transition_tail.append(t[0])
+            model_ct.automaton.transition_label.append(t[1])
+            model_ct.automaton.transition_head.append(t[2])
         return ct
 
     def AddInverse(self, variables, inverse_variables):
@@ -948,7 +971,8 @@ class CpModel(object):
         model_ct = self.__model.constraints[ct.Index()]
         model_ct.reservoir.times.extend([self.GetOrMakeIndex(x) for x in times])
         model_ct.reservoir.demands.extend(demands)
-        model_ct.reservoir.actives.extend([self.GetOrMakeIndex(x) for x in actives])
+        model_ct.reservoir.actives.extend(
+            [self.GetOrMakeIndex(x) for x in actives])
         model_ct.reservoir.min_level = min_level
         model_ct.reservoir.max_level = max_level
         return ct
@@ -1192,7 +1216,8 @@ class CpModel(object):
     def __str__(self):
         return str(self.__model)
 
-    def ModelProto(self):
+    def Proto(self):
+        """Returns the underling CpModelProto."""
         return self.__model
 
     def Negated(self, index):
@@ -1209,8 +1234,8 @@ class CpModel(object):
             cp_model_helper.AssertIsInt64(arg)
             return self.GetOrMakeIndexFromConstant(arg)
         else:
-            raise TypeError('NotSupported: model.GetOrMakeIndex(' + str(arg) +
-                            ')')
+            raise TypeError(
+                'NotSupported: model.GetOrMakeIndex(' + str(arg) + ')')
 
     def GetOrMakeBooleanIndex(self, arg):
         """Returns an index from a boolean expression."""
@@ -1224,8 +1249,8 @@ class CpModel(object):
             cp_model_helper.AssertIsBoolean(arg)
             return self.GetOrMakeIndexFromConstant(arg)
         else:
-            raise TypeError('NotSupported: model.GetOrMakeBooleanIndex(' +
-                            str(arg) + ')')
+            raise TypeError(
+                'NotSupported: model.GetOrMakeBooleanIndex(' + str(arg) + ')')
 
     def GetIntervalIndex(self, arg):
         if not isinstance(arg, IntervalVar):
@@ -1278,8 +1303,8 @@ class CpModel(object):
             self.__model.objective.offset = obj
             self.__model.objective.scaling_factor = 1
         else:
-            raise TypeError('TypeError: ' + str(obj) +
-                            ' is not a valid objective')
+            raise TypeError(
+                'TypeError: ' + str(obj) + ' is not a valid objective')
 
     def Minimize(self, obj):
         """Sets the objective of the model to minimize(obj)."""
@@ -1322,11 +1347,11 @@ class CpModel(object):
         if isinstance(x, IntVar):
             var = self.__model.variables[x.Index()]
             if len(var.domain) != 2 or var.domain[0] < 0 or var.domain[1] > 1:
-                raise TypeError('TypeError: ' + str(x) +
-                                ' is not a boolean variable')
+                raise TypeError(
+                    'TypeError: ' + str(x) + ' is not a boolean variable')
         elif not isinstance(x, _NotBooleanVariable):
-            raise TypeError('TypeError: ' + str(x) +
-                            ' is not a boolean variable')
+            raise TypeError(
+                'TypeError: ' + str(x) + ' is not a boolean variable')
 
 
 def EvaluateLinearExpression(expression, solution):
@@ -1346,7 +1371,7 @@ def EvaluateLinearExpression(expression, solution):
         elif isinstance(expr, IntVar):
             value += coef * solution.solution[expr.Index()]
         elif isinstance(expr, _NotBooleanVariable):
-            raise TypeError('Cannot interpret literals in a linear expression.')
+            value += coef * (1 - solution.solution[expr.Not().Index()])
     return value
 
 
@@ -1385,14 +1410,14 @@ class CpSolver(object):
     def Solve(self, model):
         """Solves the given model and returns the solve status."""
         self.__solution = pywrapsat.SatHelper.SolveWithParameters(
-            model.ModelProto(), self.parameters)
+            model.Proto(), self.parameters)
         return self.__solution.status
 
     def SolveWithSolutionCallback(self, model, callback):
         """Solves a problem and pass each solution found to the callback."""
         self.__solution = (
             pywrapsat.SatHelper.SolveWithParametersAndSolutionCallback(
-                model.ModelProto(), self.parameters, callback))
+                model.Proto(), self.parameters, callback))
         return self.__solution.status
 
     def SearchForAllSolutions(self, model, callback):
@@ -1400,6 +1425,8 @@ class CpSolver(object):
 
     This method searches for all feasible solution of a given model.
     Then it feeds the solution to the callback.
+
+    Note that the model cannot contain an objective.
 
     Args:
       model: The model to solve.
@@ -1416,7 +1443,7 @@ class CpSolver(object):
         self.parameters.enumerate_all_solutions = True
         self.__solution = (
             pywrapsat.SatHelper.SolveWithParametersAndSolutionCallback(
-                model.ModelProto(), self.parameters, callback))
+                model.Proto(), self.parameters, callback))
         # Restore parameters.
         self.parameters.enumerate_all_solutions = enumerate_all
         return self.__solution.status
@@ -1497,7 +1524,7 @@ class CpSolverSolutionCallback(pywrapsat.SolutionCallback):
     Raises:
         RuntimeError: if 'lit' is not a boolean variable or its negation.
     """
-        if not self.Response().solution:
+        if not self.HasResponse():
             raise RuntimeError('Solve() has not be called.')
         if isinstance(lit, numbers.Integral):
             return bool(lit)
@@ -1521,7 +1548,7 @@ class CpSolverSolutionCallback(pywrapsat.SolutionCallback):
     Raises:
         RuntimeError: if 'expression' is not a LinearExpression.
     """
-        if not self.Response().solution:
+        if not self.HasResponse():
             raise RuntimeError('Solve() has not be called.')
         if isinstance(expression, numbers.Integral):
             return expression
@@ -1539,8 +1566,8 @@ class CpSolverSolutionCallback(pywrapsat.SolutionCallback):
             elif isinstance(expr, IntVar):
                 value += coef * self.SolutionIntegerValue(expr.Index())
             elif isinstance(expr, _NotBooleanVariable):
-                raise TypeError(
-                    'Cannot interpret literals in a linear expression.')
+                value += coef * (
+                    1 - self.SolutionIntegerValue(expr.Not().Index()))
         return value
 
 
@@ -1559,7 +1586,7 @@ class ObjectiveSolutionPrinter(CpSolverSolutionCallback):
         best_bound = self.BestObjectiveBound()
         obj_lb = min(objective, best_bound)
         obj_ub = max(objective, best_bound)
-        print('Solution %i, time = %.2f s, objective = [%i, %i]' %
-              (self.__solution_count, current_time - self.__start_time,
-               obj_lb, obj_ub))
+        print('Solution %i, time = %f s, objective = [%i, %i]' %
+              (self.__solution_count, current_time - self.__start_time, obj_lb,
+               obj_ub))
         self.__solution_count += 1

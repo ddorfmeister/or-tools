@@ -1,4 +1,4 @@
-// Copyright 2018 Google
+// Copyright 2010-2018 Google LLC
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -21,20 +21,20 @@ using Google.OrTools.ConstraintSolver;
 ///   This is a sample using the routing library .Net wrapper.
 /// </summary>
 public class SimpleRoutingProgram {
-  /// <summary>
-  ///   Solves the current routing problem.
-  /// </summary>
-  static void Solve() {
+  public static void Main(String[] args) {
     // Instantiate the data problem.
     // [START data]
-    const int num_location = 5;
-    const int num_vehicles = 1;
+    const int numLocation = 5;
+    const int numVehicles = 1;
     const int depot = 0;
     // [END data]
 
     // Create Routing Index Manager
     // [START index_manager]
-    RoutingIndexManager manager = new RoutingIndexManager(num_location, num_vehicles, depot);
+    RoutingIndexManager manager = new RoutingIndexManager(
+      numLocation,
+      numVehicles,
+      depot);
     // [END index_manager]
 
     // Create Routing Model.
@@ -42,13 +42,20 @@ public class SimpleRoutingProgram {
     RoutingModel routing = new RoutingModel(manager);
     // [END routing_model]
 
+    // Create and register a transit callback.
+    // [START transit_callback]
+    int transitCallbackIndex = routing.RegisterTransitCallback(
+      (long fromIndex, long toIndex) => {
+      // Convert from routing variable Index to distance matrix NodeIndex.
+      var fromNode = manager.IndexToNode(fromIndex);
+      var toNode = manager.IndexToNode(toIndex);
+      return Math.Abs(toNode - fromNode);
+    });
+    // [END transit_callback]
+
     // Define cost of each arc.
     // [START arc_cost]
-    routing.SetArcCostEvaluatorOfAllVehicles(
-        routing.RegisterTransitCallback(
-          (long FromIndex, long ToIndex) => {
-          return 1L; }
-          ));
+    routing.SetArcCostEvaluatorOfAllVehicles(transitCallbackIndex);
     // [END arc_cost]
 
     // Setting first solution heuristic.
@@ -81,8 +88,5 @@ public class SimpleRoutingProgram {
     Console.WriteLine("Distance of the route: {0}m", route_distance);
     // [END print_solution]
   }
-
-  public static void Main(String[] args) {
-    Solve();
-  }
 }
+// [END program]

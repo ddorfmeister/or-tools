@@ -17,7 +17,11 @@
 #include <vector>
 
 #include "ortools/sat/cp_model.pb.h"
+#include "ortools/sat/cp_model_utils.h"
 #include "ortools/sat/sat_parameters.pb.h"
+#include "ortools/util/affine_relation.h"
+#include "ortools/util/bitset.h"
+#include "ortools/util/sorted_interval_list.h"
 #include "ortools/util/time_limit.h"
 
 namespace operations_research {
@@ -27,6 +31,150 @@ struct PresolveOptions {
   bool log_info = true;
   SatParameters parameters;
   TimeLimit* time_limit = nullptr;
+};
+
+// Wrap the CpModelProto we are presolving with extra data structure like the
+// in-memory domain of each variables and the constraint variable graph.
+struct PresolveContext {
+  // Helpers to adds new variables to the presolved model.
+  int NewIntVar(const Domain& domain);
+  int NewBoolVar();
+  int GetOrCreateConstantVar(int64 cst);
+
+  // a => b.
+  void AddImplication(int a, int b);
+
+  // b => x in [lb, ub].
+  void AddImplyInDomain(int b, int x, const Domain& domain);
+
+  // Helpers to query the current domain of a variable.
+  bool DomainIsEmpty(int ref) const;
+  bool IsFixed(int ref) const;
+  bool LiteralIsTrue(int lit) const;
+  bool LiteralIsFalse(int lit) const;
+  int64 MinOf(int ref) const;
+  int64 MaxOf(int ref) const;
+  bool DomainContains(int ref, int64 value) const;
+  Domain DomainOf(int ref) const;
+
+  // Returns true if this ref only appear in one constraint.
+  bool VariableIsUniqueAndRemovable(int ref) const;
+
+  // Returns true iff the domain changed.
+  bool IntersectDomainWith(int ref, const Domain& domain);
+
+  // TODO(user): These function and IntersectDomainWith() can make the model
+  // UNSAT and leave the PresolveContext() in an unusable state. Either make
+  // sure that is not a problem until the client check for is_unsat, or use
+  // a construct like MUST_USE_RESULT to ensure that the client do not forget to
+  // test for empty domains.
+  void SetLiteralToFalse(int lit);
+  void SetLiteralToTrue(int lit);
+
+  // Stores a description of a rule that was just applied to have a summary of
+  // what the presolve did at the end.
+  void UpdateRuleStats(const std::string& name);
+
+  // Update the constraints <-> variables graph. This needs to be called each
+  // time a constraint is modified.
+  void UpdateConstraintVariableUsage(int c);
+
+  // Calls UpdateConstraintVariableUsage() on all newly created constraints.
+  void UpdateNewConstraintsVariableUsage();
+
+  // Returns true if our current constraints <-> variables graph is ok.
+  // This is meant to be used in DEBUG mode only.
+  bool ConstraintVariableUsageIsConsistent();
+
+  // Regroups fixed variables with the same value.
+  // TODO(user): Also regroup cte and -cte?
+  void ExploitFixedDomain(int var);
+
+  // Adds the relation (ref_x = coeff * ref_y + offset) to the repository.
+  void StoreAffineRelation(const ConstraintProto& ct, int ref_x, int ref_y,
+                           int64 coeff, int64 offset);
+
+  void StoreBooleanEqualityRelation(int ref_a, int ref_b);
+
+  // This makes sure that the affine relation only uses one of the
+  // representative from the var_equiv_relations.
+  AffineRelation::Relation GetAffineRelation(int ref);
+
+  // Create the internal structure for any new variables in working_model.
+  void InitializeNewDomains();
+
+  // Gets the associated literal if it is already created. Otherwise
+  // create it, add the corresponding constraints and returns it.
+  int GetOrCreateVarValueEncoding(int ref, int64 value);
+
+  // This regroup all the affine relations between variables. Note that the
+  // constraints used to detect such relations will not be removed from the
+  // model at detection time (thus allowing proper domain propagation). However,
+  // if the arity of a variable becomes one, then such constraint will be
+  // removed.
+  AffineRelation affine_relations;
+  AffineRelation var_equiv_relations;
+
+  // Set of constraint that implies an "affine relation". We need to mark them,
+  // because we can't simplify them using the relation they added.
+  //
+  // WARNING: This assumes the ConstraintProto* to stay valid during the full
+  // presolve even if we add new constraint to the CpModelProto.
+  absl::flat_hash_set<ConstraintProto const*> affine_constraints;
+
+  // For each constant variable appearing in the model, we maintain a reference
+  // variable with the same constant value. If two variables end up having the
+  // same fixed value, then we can detect it using this and add a new
+  // equivalence relation. See ExploitFixedDomain().
+  absl::flat_hash_map<int64, int> constant_to_ref;
+
+  // Contains fully expanded variables.
+  // expanded_variables[std::pair(i, v)] point to the literal attached to the
+  // value v of the variable i.
+  absl::flat_hash_map<std::pair<int, int64>, int> encoding;
+
+  // Variable <-> constraint graph.
+  // The vector list is sorted and contains unique elements.
+  //
+  // Important: To properly handle the objective, var_to_constraints[objective]
+  // contains -1 so that if the objective appear in only one constraint, the
+  // constraint cannot be simplified.
+  //
+  // TODO(user): Make this private?
+  std::vector<std::vector<int>> constraint_to_vars;
+  std::vector<absl::flat_hash_set<int>> var_to_constraints;
+
+  // We maintain how many time each interval is used.
+  std::vector<std::vector<int>> constraint_to_intervals;
+  std::vector<int> interval_usage;
+
+  CpModelProto* working_model;
+  CpModelProto* mapping_model;
+
+  // Initially false, and set to true on the first inconsistency.
+  bool is_unsat = false;
+
+  // Indicate if we are enumerating all solutions. This disable some presolve
+  // rules.
+  bool enumerate_all_solutions = false;
+
+  // Just used to display statistics on the presolve rules that were used.
+  absl::flat_hash_map<std::string, int> stats_by_rule_name;
+
+  // Temporary storage.
+  std::vector<int> tmp_literals;
+  std::vector<Domain> tmp_term_domains;
+  std::vector<Domain> tmp_left_domains;
+  absl::flat_hash_set<int> tmp_literal_set;
+
+  // Each time a domain is modified this is set to true.
+  SparseBitset<int64> modified_domains;
+
+ private:
+  void AddVariableUsage(int c);
+
+  // The current domain of each variables.
+  std::vector<Domain> domains;
 };
 
 // Presolves the initial content of presolved_model.

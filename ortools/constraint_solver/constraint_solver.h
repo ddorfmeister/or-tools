@@ -712,6 +712,9 @@ class Solver {
     PROBLEM_INFEASIBLE  // After search, the model is infeasible.
   };
 
+  // Optimization directions.
+  enum OptimizationDirection { NOT_SET, MAXIMIZATION, MINIMIZATION };
+
   // Callback typedefs
   typedef std::function<int64(int64)> IndexEvaluator1;
   typedef std::function<int64(int64, int64)> IndexEvaluator2;
@@ -979,6 +982,14 @@ class Solver {
 
   // The fail_stamp() is incremented after each backtrack.
   uint64 fail_stamp() const;
+
+  // The direction of optimization, getter and setter.
+  OptimizationDirection optimization_direction() const {
+    return optimization_direction_;
+  }
+  void set_optimization_direction(OptimizationDirection direction) {
+    optimization_direction_ = direction;
+  }
 
   // ---------- Make Factory ----------
 
@@ -2225,8 +2236,14 @@ class Solver {
 
   void UpdateLimits(int64 time, int64 branches, int64 failures, int64 solutions,
                     SearchLimit* limit);
-  // Returns 'time' limit of search limit
-  int64 GetTime(SearchLimit* limit);
+  // Returns the 'time' limit of the search limit.
+  static int64 GetTimeLimit(SearchLimit* limit);
+  // Returns the 'branch' limit of the search limit.
+  static int64 GetBranchLimit(SearchLimit* limit);
+  // Return the 'failure' limit of the search limit.
+  static int64 GetFailureLimit(SearchLimit* limit);
+  // Returns the 'solutions' limit of the search limit.
+  static int64 GetSolutionLimit(SearchLimit* limit);
 
   // Callback-based search limit. Search stops when limiter returns true; if
   // this happens at a leaf the corresponding solution will be rejected.
@@ -2682,6 +2699,11 @@ class Solver {
   DecisionBuilder* MakeLocalSearchPhase(
       const std::vector<IntVar*>& vars, DecisionBuilder* const first_solution,
       LocalSearchPhaseParameters* const parameters);
+  // Variant with a sub_decison_builder specific to the first solution.
+  DecisionBuilder* MakeLocalSearchPhase(
+      const std::vector<IntVar*>& vars, DecisionBuilder* const first_solution,
+      DecisionBuilder* const first_solution_sub_decision_builder,
+      LocalSearchPhaseParameters* const parameters);
   DecisionBuilder* MakeLocalSearchPhase(
       const std::vector<SequenceVar*>& vars,
       DecisionBuilder* const first_solution,
@@ -2825,6 +2847,14 @@ class Solver {
   void clear_fail_intercept() { fail_intercept_ = nullptr; }
   // Access to demon profiler.
   DemonProfiler* demon_profiler() const { return demon_profiler_; }
+  // TODO(user): Get rid of the following methods once fast local search is
+  // enabled for metaheuristics.
+  // Disables/enables fast local search.
+  void SetUseFastLocalSearch(bool use_fast_local_search) {
+    use_fast_local_search_ = use_fast_local_search;
+  }
+  // Returns true if fast local search is enabled.
+  bool UseFastLocalSearch() const { return use_fast_local_search_; }
   // Returns whether the object has been named or not.
   bool HasName(const PropagationBaseObject* object) const;
   // Adds a new demon and wraps it inside a DemonProfiler if necessary.
@@ -2866,6 +2896,11 @@ class Solver {
   void SetSearchContext(Search* search, const std::string& search_context);
   std::string SearchContext() const;
   std::string SearchContext(const Search* search) const;
+  // Returns (or creates) an assignment representing the state of local search.
+  // TODO(user): Investigate if this should be moved to Search.
+  Assignment* GetOrCreateLocalSearchState();
+  // Clears the local search state.
+  void ClearLocalSearchState() { local_search_state_.reset(nullptr); }
 
   // Unsafe temporary vector. It is used to avoid leaks in operations
   // that need storage and that may fail. See IntVar::SetValues() for
@@ -3028,6 +3063,7 @@ class Solver {
   int64 neighbors_;
   int64 filtered_neighbors_;
   int64 accepted_neighbors_;
+  OptimizationDirection optimization_direction_;
   std::unique_ptr<ClockTimer> timer_;
   std::vector<Search*> searches_;
   ACMRandom random_;
@@ -3037,8 +3073,12 @@ class Solver {
   std::function<void()> fail_intercept_;
   // Demon monitor
   DemonProfiler* const demon_profiler_;
+  // Local search mode
+  bool use_fast_local_search_;
   // Local search profiler monitor
   LocalSearchProfiler* const local_search_profiler_;
+  // Local search state.
+  std::unique_ptr<Assignment> local_search_state_;
 
   // interval of constants cached, inclusive:
   enum { MIN_CACHED_INT_CONST = -8, MAX_CACHED_INT_CONST = 8 };
@@ -3070,7 +3110,9 @@ std::ostream& operator<<(std::ostream& out, const Solver* const s);  // NOLINT
 // This method returns 0. It is useful when 0 can be cast either as
 // a pointer or as an integer value and thus lead to an ambiguous
 // function call.
-inline int64 Zero() { return 0LL; }
+inline int64 Zero() { return 0; }
+// This method returns 1
+inline int64 One() { return 1; }
 
 /////////////////////////////////////////////////////////////////////
 //
@@ -3630,6 +3672,9 @@ class SearchMonitor : public BaseObject {
   // After accepting a neighbor during local search.
   virtual void AcceptNeighbor();
 
+  // After accepting an unchecked neighbor during local search.
+  virtual void AcceptUncheckedNeighbor();
+
   Solver* solver() const { return solver_; }
 
   // Periodic call to check limits in long running methods.
@@ -4138,6 +4183,7 @@ class OptimizeVar : public SearchMonitor {
   // Returns the variable that is optimized.
   IntVar* Var() const { return var_; }
   // Internal methods.
+  bool AcceptDelta(Assignment* delta, Assignment* deltadelta) override;
   void EnterSearch() override;
   void BeginNextDecision(DecisionBuilder* const db) override;
   void RefuteDecision(Decision* const d) override;
@@ -4613,6 +4659,10 @@ class IntervalVarElement : public AssignmentElement {
     performed_min_ = v;
     performed_max_ = v;
   }
+  bool Bound() const {
+    return (start_min_ == start_max_ && duration_min_ == duration_max_ &&
+            end_min_ == end_max_ && performed_min_ == performed_max_);
+  }
   std::string DebugString() const;
   bool operator==(const IntervalVarElement& element) const;
   bool operator!=(const IntervalVarElement& element) const {
@@ -4669,6 +4719,9 @@ class SequenceVarElement : public AssignmentElement {
   void SetForwardSequence(const std::vector<int>& forward_sequence);
   void SetBackwardSequence(const std::vector<int>& backward_sequence);
   void SetUnperformed(const std::vector<int>& unperformed);
+  bool Bound() const {
+    return forward_sequence_.size() + unperformed_.size() == var_->size();
+  }
 
   std::string DebugString() const;
 
@@ -4799,6 +4852,12 @@ class AssignmentContainer {
         element.Restore();
       }
     }
+  }
+  bool AreAllElementsBound() const {
+    for (const E& element : elements_) {
+      if (!element.Bound()) return false;
+    }
+    return true;
   }
 
   // Returns true if this and 'container' both represent the same V* -> E map.
@@ -4997,6 +5056,12 @@ class Assignment : public PropagationBaseObject {
   bool ActivatedObjective() const;
 
   std::string DebugString() const override;
+
+  bool AreAllElementsBound() const {
+    return int_var_container_.AreAllElementsBound() &&
+           interval_var_container_.AreAllElementsBound() &&
+           sequence_var_container_.AreAllElementsBound();
+  }
 
   bool Contains(const IntVar* const var) const;
   bool Contains(const IntervalVar* const var) const;

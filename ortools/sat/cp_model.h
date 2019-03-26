@@ -81,6 +81,15 @@ class BoolVar {
     return cp_model_->variables(index_);
   }
 
+  // Useful for model edition.
+  IntegerVariableProto* MutableProto() const {
+    return cp_model_->mutable_variables(index_);
+  }
+
+  // Returns the index of the variable in the model. If the variable is the
+  // negation of another variable v, its index is -v.index() - 1.
+  int index() const { return index_; }
+
  private:
   friend class CircuitConstraint;
   friend class Constraint;
@@ -136,6 +145,14 @@ class IntVar {
   const IntegerVariableProto& Proto() const {
     return cp_model_->variables(index_);
   }
+
+  // Useful for model edition.
+  IntegerVariableProto* MutableProto() const {
+    return cp_model_->mutable_variables(index_);
+  }
+
+  // Returns the index of the variable in the model.
+  int index() const { return index_; }
 
  private:
   friend class CpModelBuilder;
@@ -291,6 +308,14 @@ class IntervalVar {
     return cp_model_->constraints(index_).interval();
   }
 
+  // Useful for model edition.
+  IntervalConstraintProto* MutableProto() const {
+    return cp_model_->mutable_constraints(index_)->mutable_interval();
+  }
+
+  // Returns the index of the interval constraint in the model.
+  int index() const { return index_; }
+
  private:
   friend class CpModelBuilder;
   friend class CumulativeConstraint;
@@ -338,6 +363,9 @@ class Constraint {
 
   // Useful for testing.
   const ConstraintProto& Proto() const { return *proto_; }
+
+  // Useful for model edition.
+  ConstraintProto* MutableProto() const { return proto_; }
 
  protected:
   friend class CpModelBuilder;
@@ -576,7 +604,7 @@ class CpModelBuilder {
   // and 'label' is the label of an arc from 'head' to 'tail',
   // corresponding to the value of one variable in the list of variables.
   //
-  // This automata will be unrolled into a flow with n + 1 phases. Each phase
+  // This automaton will be unrolled into a flow with n + 1 phases. Each phase
   // contains the possible states of the automaton. The first state contains the
   // initial state. The last phase contains the final states.
   //

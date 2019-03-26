@@ -28,7 +28,6 @@
 #include "ortools/base/timer.h"
 #include "ortools/flatzinc/checker.h"
 #include "ortools/flatzinc/logging.h"
-#include "ortools/port/proto_utils.h"
 #include "ortools/sat/cp_constraints.h"
 #include "ortools/sat/cp_model.pb.h"
 #include "ortools/sat/cp_model_search.h"
@@ -403,7 +402,7 @@ void CpModelProtoWithMapping::FillConstraint(const fz::Constraint& fz_ct,
     for (const int var : LookupVars(fz_ct.arguments[0])) arg->add_vars(var);
     for (const int64 value : fz_ct.arguments[1].values) arg->add_values(value);
   } else if (fz_ct.type == "regular") {
-    auto* arg = ct->mutable_automata();
+    auto* arg = ct->mutable_automaton();
     for (const int var : LookupVars(fz_ct.arguments[0])) arg->add_vars(var);
 
     int count = 0;
@@ -412,9 +411,11 @@ void CpModelProtoWithMapping::FillConstraint(const fz::Constraint& fz_ct,
     for (int i = 1; i <= num_states; ++i) {
       for (int j = 1; j <= num_values; ++j) {
         CHECK_LT(count, fz_ct.arguments[3].values.size());
+        const int next = fz_ct.arguments[3].values[count++];
+        if (next == 0) continue;  // 0 is a failing state.
         arg->add_transition_tail(i);
         arg->add_transition_label(j);
-        arg->add_transition_head(fz_ct.arguments[3].values[count++]);
+        arg->add_transition_head(next);
       }
     }
 
@@ -844,10 +845,13 @@ void LogInFlatzincFormat(const std::string& multi_line_input) {
 }  // namespace
 
 void SolveFzWithCpModelProto(const fz::Model& fz_model,
-                             const fz::FlatzincParameters& p,
+                             const fz::FlatzincSatParameters& p,
                              const std::string& sat_params) {
-  WallTimer timer;
-  timer.Start();
+  if (!FLAGS_use_flatzinc_format) {
+    LOG(INFO) << "*** Starting translation to CP-SAT";
+  } else if (p.verbose_logging) {
+    FZLOG << "*** Starting translation to CP-SAT" << FZENDL;
+  }
 
   CpModelProtoWithMapping m;
   m.proto.set_name(fz_model.name());
@@ -915,30 +919,30 @@ void SolveFzWithCpModelProto(const fz::Model& fz_model,
   // Print model statistics.
   if (!FLAGS_use_flatzinc_format) {
     LOG(INFO) << CpModelStats(m.proto);
-  } else if (p.logging) {
+  } else if (p.verbose_logging) {
     LogInFlatzincFormat(CpModelStats(m.proto));
   }
 
-  if (p.all_solutions && !m.proto.has_objective()) {
+  if (p.display_all_solutions && !m.proto.has_objective()) {
     // Enumerate all sat solutions.
     m.parameters.set_enumerate_all_solutions(true);
   }
-  if (p.free_search) {
+  if (p.use_free_search) {
     m.parameters.set_search_branching(SatParameters::AUTOMATIC_SEARCH);
   } else {
     m.parameters.set_search_branching(SatParameters::FIXED_SEARCH);
   }
-  if (p.time_limit_in_ms > 0) {
-    m.parameters.set_max_time_in_seconds(p.time_limit_in_ms * 1e-3);
+  if (p.max_time_in_seconds > 0) {
+    m.parameters.set_max_time_in_seconds(p.max_time_in_seconds);
   }
 
   // We don't support enumerating all solution in parallel for a SAT problem.
   // But note that we do support it for an optimization problem since the
   // meaning of p.all_solutions is not the same in this case.
-  if (p.all_solutions && fz_model.objective() == nullptr) {
+  if (p.display_all_solutions && fz_model.objective() == nullptr) {
     m.parameters.set_num_search_workers(1);
   } else {
-    m.parameters.set_num_search_workers(std::max(1, p.threads));
+    m.parameters.set_num_search_workers(std::max(1, p.number_of_threads));
   }
 
   // The order is important, we want the flag parameters to overwrite anything
@@ -955,7 +959,7 @@ void SolveFzWithCpModelProto(const fz::Model& fz_model,
 
   // We only need an observer if 'p.all_solutions' is true.
   std::function<void(const CpSolverResponse&)> solution_observer = nullptr;
-  if (p.all_solutions && FLAGS_use_flatzinc_format) {
+  if (p.display_all_solutions && FLAGS_use_flatzinc_format) {
     solution_observer = [&fz_model, &m](const CpSolverResponse& r) {
       const std::string solution_string =
           SolutionString(fz_model, [&m, &r](fz::IntegerVariable* v) {
@@ -985,7 +989,7 @@ void SolveFzWithCpModelProto(const fz::Model& fz_model,
   if (FLAGS_use_flatzinc_format) {
     if (response.status() == CpSolverStatus::FEASIBLE ||
         response.status() == CpSolverStatus::OPTIMAL) {
-      if (!p.all_solutions) {  // Already printed otherwise.
+      if (!p.display_all_solutions) {  // Already printed otherwise.
         const std::string solution_string =
             SolutionString(fz_model, [&response, &m](fz::IntegerVariable* v) {
               return response.solution(gtl::FindOrDie(m.fz_var_to_index, v));
@@ -1001,7 +1005,7 @@ void SolveFzWithCpModelProto(const fz::Model& fz_model,
     } else {
       std::cout << "%% TIMEOUT" << std::endl;
     }
-    if (p.statistics) {
+    if (p.display_statistics) {
       LogInFlatzincFormat(CpSolverResponseStats(response));
     }
   } else {

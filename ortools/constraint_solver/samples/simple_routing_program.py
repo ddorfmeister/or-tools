@@ -1,6 +1,4 @@
-#!/usr/bin/env python
-# This Python file uses the following encoding: utf-8
-# Copyright 2018 Google LLC
+# Copyright 2010-2018 Google LLC
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -13,16 +11,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # [START program]
-"""Vehicle Routing example"""
+"""Vehicle Routing example."""
 
 # [START import]
 from __future__ import print_function
-from ortools.constraint_solver import pywrapcp
 from ortools.constraint_solver import routing_enums_pb2
+from ortools.constraint_solver import pywrapcp
+from ortools.constraint_solver import pywrapcp
+
 # [END import]
 
+
 def main():
-    """Entry point of the program"""
+    """Entry point of the program."""
     # Instantiate the data problem.
     # [START data]
     num_locations = 5
@@ -38,13 +39,24 @@ def main():
     # Create Routing Model.
     # [START routing_model]
     routing = pywrapcp.RoutingModel(manager)
+
     # [END routing_model]
+
+    # Create and register a transit callback.
+    # [START transit_callback]
+    def distance_callback(from_index, to_index):
+        """Returns the absolute difference between the two nodes."""
+        # Convert from routing variable Index to user NodeIndex.
+        from_node = int(manager.IndexToNode(from_index))
+        to_node = int(manager.IndexToNode(to_index))
+        return abs(to_node - from_node)
+
+    transit_callback_index = routing.RegisterTransitCallback(distance_callback)
+    # [END transit_callback]
 
     # Define cost of each arc.
     # [START arc_cost]
-    routing.SetArcCostEvaluatorOfAllVehicles(
-        routing.RegisterTransitCallback(
-            lambda from_node, to_node: 1))
+    routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
     # [END arc_cost]
 
     # Setting first solution heuristic.

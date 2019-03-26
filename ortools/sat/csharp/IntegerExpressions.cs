@@ -414,9 +414,20 @@ public class IntVar : IntegerExpression, ILiteral
     negation_ = null;
   }
 
+  public int Index
+  {
+    get  { return index_; }
+  }
+
   public override int GetIndex()
   {
     return index_;
+  }
+
+  public IntegerVariableProto Proto
+  {
+    get { return var_; }
+    set { var_ = value; }
   }
 
   public override string ToString()

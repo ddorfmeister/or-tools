@@ -17,20 +17,13 @@
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "ortools/sat/linear_constraint.h"
 #include "ortools/sat/model.h"
 #include "ortools/sat/sat_parameters.pb.h"
 
 namespace operations_research {
 namespace sat {
-
-// Returns sqrt(sum square(coeff)).
-double ComputeL2Norm(const LinearConstraint& constraint);
-
-// Returns the scalar product of given constraint coefficients. This method
-// assumes that the constraint variables are in sorted order.
-double ScalarProduct(const LinearConstraint& constraint1,
-                     const LinearConstraint& constraint2);
 
 // This class holds a list of globally valid linear constraints and has some
 // logic to decide which one should be part of the LP relaxation. We want more
@@ -47,15 +40,16 @@ double ScalarProduct(const LinearConstraint& constraint1,
 class LinearConstraintManager {
  public:
   LinearConstraintManager() {}
-  ~LinearConstraintManager() {
-    if (num_merged_constraints_ > 0) {
-      VLOG(2) << "num_merged_constraints: " << num_merged_constraints_;
-    }
-  }
+  ~LinearConstraintManager();
 
   // Add a new constraint to the manager. Note that we canonicalize constraints
   // and merge the bounds of constraints with the same terms.
   void Add(const LinearConstraint& ct);
+
+  // Same as Add(), but logs some information about the newly added constraint.
+  // Cuts are also handled slightly differently than normal constraints.
+  void AddCut(const LinearConstraint& ct, std::string type_name,
+              const gtl::ITIVector<IntegerVariable, double>& lp_solution);
 
   // Heuristic to decides what LP is best solved next. The given lp_solution
   // should usually be the optimal solution of the LP returned by GetLp() before
@@ -83,18 +77,32 @@ class LinearConstraintManager {
 
   void SetParameters(const SatParameters& params) { sat_parameters_ = params; }
 
- private:
-  SatParameters sat_parameters_;
+  int num_cuts() const { return num_cuts_; }
 
-  // The set of variables that appear in at least one constraint.
-  std::set<IntegerVariable> used_variables_;
+ private:
+  // Removes the marked constraints from the LP.
+  void RemoveMarkedConstraints();
+
+  SatParameters sat_parameters_;
 
   // Set at true by Add() and at false by ChangeLp().
   bool some_lp_constraint_bounds_changed_ = false;
 
-  // The global list of constraint.
+  // TODO(user): Merge all the constraint related info in a struct and store
+  // a vector of struct instead. The global list of constraint.
   gtl::ITIVector<ConstraintIndex, LinearConstraint> constraints_;
   gtl::ITIVector<ConstraintIndex, double> constraint_l2_norms_;
+  gtl::ITIVector<ConstraintIndex, bool> constraint_is_cut_;
+  gtl::ITIVector<ConstraintIndex, int64> constraint_inactive_count_;
+
+  // Temporary list of constraints marked for removal. Note that we remove
+  // constraints in batch to avoid changing LP too frequently.
+  absl::flat_hash_set<ConstraintIndex> constraints_removal_list_;
+
+  // List of permananently removed constraints. A constraint might be marked for
+  // permanent removal if it is almost parallel to one of the existing
+  // constraints in the LP.
+  gtl::ITIVector<ConstraintIndex, bool> constraint_permanently_removed_;
 
   // The subset of constraints currently in the lp.
   gtl::ITIVector<ConstraintIndex, bool> constraint_is_in_lp_;
@@ -117,6 +125,9 @@ class LinearConstraintManager {
   };
   absl::flat_hash_map<Terms, int, TermsHash> equiv_constraints_;
   int64 num_merged_constraints_ = 0;
+
+  int num_cuts_ = 0;
+  std::map<std::string, int> type_to_num_cuts_;
 };
 
 }  // namespace sat

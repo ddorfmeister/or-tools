@@ -215,6 +215,7 @@ ifeq ($(PLATFORM),MACOSX)
   PRE_LIB = -L$(OR_ROOT)lib -l
   POST_LIB =
   LINK_FLAGS = \
+ -framework CoreFoundation \
  -Wl,-rpath,@loader_path \
  -Wl,-rpath,@loader_path/../lib \
  -Wl,-rpath,@loader_path/../dependencies/install/lib

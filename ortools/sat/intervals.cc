@@ -54,7 +54,8 @@ SchedulingConstraintHelper::SchedulingConstraintHelper(
     : trail_(model->GetOrCreate<Trail>()),
       integer_trail_(model->GetOrCreate<IntegerTrail>()),
       precedences_(model->GetOrCreate<PrecedencesPropagator>()),
-      current_time_direction_(true) {
+      current_time_direction_(true),
+      visible_intervals_(tasks.size(), true) {
   auto* repository = model->GetOrCreate<IntervalsRepository>();
   start_vars_.clear();
   end_vars_.clear();
@@ -175,23 +176,37 @@ SchedulingConstraintHelper::TaskByIncreasingShiftedStartMin() {
 // Produces a relaxed reason for StartMax(before) < EndMin(after).
 void SchedulingConstraintHelper::AddReasonForBeingBefore(int before,
                                                          int after) {
+  AddOtherReason(before);
+  AddOtherReason(after);
+
+  const IntegerLiteral end_min_lit =
+      integer_trail_->LowerBoundAsLiteral(end_vars_[after]);
+  const IntegerLiteral start_max_lit =
+      integer_trail_->UpperBoundAsLiteral(start_vars_[before]);
+
   DCHECK_LT(StartMax(before), EndMin(after));
-  const IntegerValue slack = EndMin(after) - StartMax(before) - 1;
-  std::vector<IntegerLiteral> temp;
-  temp.push_back(integer_trail_->LowerBoundAsLiteral(end_vars_[after]));
-  temp.push_back(
-      integer_trail_->LowerBoundAsLiteral(NegationOf(start_vars_[before])));
-  integer_trail_->RelaxLinearReason(slack, {IntegerValue(1), IntegerValue(1)},
-                                    &temp);
-  integer_reason_.insert(integer_reason_.end(), temp.begin(), temp.end());
+  DCHECK_EQ(EndMin(after), end_min_lit.bound);
+  DCHECK_EQ(StartMax(before), -start_max_lit.bound);
+
+  const IntegerValue slack = end_min_lit.bound + start_max_lit.bound - 1;
+  if (slack == 0) {
+    integer_reason_.push_back(end_min_lit);
+    integer_reason_.push_back(start_max_lit);
+    return;
+  }
+  integer_trail_->AppendRelaxedLinearReason(
+      slack, {IntegerValue(1), IntegerValue(1)},
+      {end_min_lit.var, start_max_lit.var}, &integer_reason_);
 }
 
 bool SchedulingConstraintHelper::PushIntegerLiteral(IntegerLiteral bound) {
+  CHECK(other_helper_ == nullptr);
   return integer_trail_->Enqueue(bound, literal_reason_, integer_reason_);
 }
 
 bool SchedulingConstraintHelper::PushIntervalBound(int t, IntegerLiteral lit) {
   if (IsAbsent(t)) return true;
+  AddOtherReason(t);
 
   // TODO(user): we can also push lit.var if its presence implies the interval
   // presence.
@@ -212,6 +227,7 @@ bool SchedulingConstraintHelper::PushIntervalBound(int t, IntegerLiteral lit) {
     }
   }
 
+  ImportOtherReasons();
   if (!integer_trail_->Enqueue(lit, literal_reason_, integer_reason_)) {
     return false;
   }
@@ -235,16 +251,21 @@ bool SchedulingConstraintHelper::DecreaseEndMax(int t,
 bool SchedulingConstraintHelper::PushTaskAbsence(int t) {
   DCHECK_NE(reason_for_presence_[t], kNoLiteralIndex);
   DCHECK(!IsAbsent(t));
+
+  AddOtherReason(t);
+
   if (IsPresent(t)) {
     literal_reason_.push_back(Literal(reason_for_presence_[t]).Negated());
     return ReportConflict();
   }
+  ImportOtherReasons();
   integer_trail_->EnqueueLiteral(Literal(reason_for_presence_[t]).Negated(),
                                  literal_reason_, integer_reason_);
   return true;
 }
 
 bool SchedulingConstraintHelper::ReportConflict() {
+  ImportOtherReasons();
   return integer_trail_->ReportConflict(literal_reason_, integer_reason_);
 }
 
@@ -260,6 +281,39 @@ void SchedulingConstraintHelper::WatchAllTasks(
     if (!IsPresent(t) && !IsAbsent(t)) {
       watcher->WatchLiteral(Literal(reason_for_presence_[t]), id);
     }
+  }
+}
+
+void SchedulingConstraintHelper::AddOtherReason(int t) {
+  if (other_helper_ == nullptr || already_added_to_other_reasons_[t]) return;
+  already_added_to_other_reasons_[t] = true;
+  other_helper_->AddStartMaxReason(t, event_for_other_helper_);
+  other_helper_->AddEndMinReason(t, event_for_other_helper_ + 1);
+}
+
+void SchedulingConstraintHelper::ImportOtherReasons() {
+  if (other_helper_ != nullptr) ImportOtherReasons(*other_helper_);
+}
+
+void SchedulingConstraintHelper::ImportOtherReasons(
+    const SchedulingConstraintHelper& other_helper) {
+  literal_reason_.insert(literal_reason_.end(),
+                         other_helper.literal_reason_.begin(),
+                         other_helper.literal_reason_.end());
+  integer_reason_.insert(integer_reason_.end(),
+                         other_helper.integer_reason_.begin(),
+                         other_helper.integer_reason_.end());
+}
+
+void SchedulingConstraintHelper::SetAllIntervalsVisible() {
+  visible_intervals_.assign(NumTasks(), true);
+}
+
+void SchedulingConstraintHelper::SetVisibleIntervals(
+    const std::vector<int>& visible_intervals) {
+  visible_intervals_.assign(NumTasks(), false);
+  for (const int t : visible_intervals) {
+    visible_intervals_[t] = true;
   }
 }
 
