@@ -26,7 +26,7 @@
 #include "ortools/base/integral_types.h"
 #include "ortools/base/logging.h"
 #include "ortools/base/status.h"
-#include "ortools/base/status_macros.h"
+// #include "ortools/base/status_macros.h"
 #include "ortools/base/timer.h"
 #include "ortools/base/dynamic_library.h"
 #include "ortools/linear_solver/linear_solver.h"
@@ -180,6 +180,7 @@ class SCIPInterface : public MPSolverInterface {
   std::function<SCIP_Real(SCIP*)> SCIPgetDualbound;
   std::function<SCIP_Longint(SCIP*)> SCIPgetNLPIterations;
   std::function<SCIP_Longint(SCIP*)> SCIPgetNTotalNodes;
+  std::function<SCIP_RETCODE(SCIP*, const char*, SCIP_Real*)> SCIPgetRealParam;
   std::function<SCIP_Real(SCIP*, SCIP_SOL*)> SCIPgetSolOrigObj;
   std::function<SCIP_Real(SCIP*, SCIP_SOL*, SCIP_VAR*)> SCIPgetSolVal;
   std::function<SCIP_STATUS(SCIP*)> SCIPgetStatus;
@@ -205,6 +206,7 @@ class SCIPInterface : public MPSolverInterface {
   std::function<SCIP_RETCODE(SCIP*, SCIP_SOL*, SCIP_VAR*, SCIP_Real)>
       SCIPsetSolVal;
   std::function<SCIP_RETCODE(SCIP*)> SCIPsolve;
+  std::function<SCIP_RETCODE(SCIP*)> SCIPsolveConcurrent;
   std::function<int(void)> SCIPtechVersion;
   std::function<SCIP_RETCODE(SCIP*, SCIP_SOL**, SCIP_Bool, SCIP_Bool,
                              SCIP_Bool, SCIP_Bool, SCIP_Bool, SCIP_Bool*)>
@@ -264,6 +266,7 @@ SCIPInterface::SCIPInterface(MPSolver* solver)
     lib_->GetFunction(&SCIPgetDualbound, NAMEOF(SCIPgetDualbound));
     lib_->GetFunction(&SCIPgetNLPIterations, NAMEOF(SCIPgetNLPIterations));
     lib_->GetFunction(&SCIPgetNTotalNodes, NAMEOF(SCIPgetNTotalNodes));
+    lib_->GetFunction(&SCIPgetRealParam, NAMEOF(SCIPgetRealParam));
     lib_->GetFunction(&SCIPgetSolOrigObj, NAMEOF(SCIPgetSolOrigObj));
     lib_->GetFunction(&SCIPgetSolVal, NAMEOF(SCIPgetSolVal));
     lib_->GetFunction(&SCIPgetStatus, NAMEOF(SCIPgetStatus));
@@ -289,6 +292,7 @@ SCIPInterface::SCIPInterface(MPSolver* solver)
     lib_->GetFunction(&SCIPsetRealParam, NAMEOF(SCIPsetRealParam));
     lib_->GetFunction(&SCIPsetSolVal, NAMEOF(SCIPsetSolVal));
     lib_->GetFunction(&SCIPsolve, NAMEOF(SCIPsolve));
+    lib_->GetFunction(&SCIPsolveConcurrent, NAMEOF(SCIPsolveConcurrent));
     lib_->GetFunction(&SCIPtechVersion, NAMEOF(SCIPtechVersion));
     lib_->GetFunction(&SCIPtrySolFree, NAMEOF(SCIPtrySolFree));
   } catch (const std::runtime_error& e) {
@@ -310,6 +314,11 @@ void SCIPInterface::Reset() {
   status_ = CreateSCIP();
   ResetExtractionInformation();
 }
+
+#define RETURN_IF_ERROR(x)  \
+  do {                      \
+    if (!x.ok()) return x;  \
+  } while (false)
 
 util::Status SCIPInterface::CreateSCIP() {
   RETURN_IF_ERROR(TO_STATUS(SCIPcreate(&scip_)));
@@ -364,12 +373,12 @@ void SCIPInterface::DeleteSCIP() {
   scip_ = nullptr;
 }
 
-#define RETURN_IF_ALREADY_IN_ERROR_STATE                                 \
-  do {                                                                   \
-    if (!status_.ok()) {                                                 \
-      VLOG_EVERY_N_SEC(1, 10) << "Early abort: SCIP is in error state."; \
-      return;                                                            \
-    }                                                                    \
+#define RETURN_IF_ALREADY_IN_ERROR_STATE                     \
+  do {                                                       \
+    if (!status_.ok()) {                                     \
+      LOG(DFATAL) << "Early abort: SCIP is in error state."; \
+      return;                                                \
+    }                                                        \
   } while (false)
 
 #define RETURN_IF_SCIP_ERROR(x) \
